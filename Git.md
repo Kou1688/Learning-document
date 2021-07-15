@@ -78,9 +78,17 @@
 
 
 
+第一次推送到Github
+
 ```bas
 git remote add origin https://github.com/Kou1688/Learning-document.git
 git branch -M main
 git push -u origin main
 ```
+
+
+
+`git push`： 推送到远程仓库
+
+`git pull` ：拉取远程仓库
 
