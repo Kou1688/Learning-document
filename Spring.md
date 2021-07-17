@@ -33,7 +33,7 @@
 
 ### 	1.3 组成
 
-![image-20210617155616795](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210617155616795.png)
+![image-20210617155616795](Spring.assets/image-20210617155616795.png)
 
  
 
@@ -41,7 +41,7 @@
 
 现代化的Java开发，说白就是基于Spring开发。
 
-![image-20210617160137145](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210617160137145.png)
+![image-20210617160137145](Spring.assets/image-20210617160137145.png)
 
 + SpringBoot
   + 一个快速开发的脚手架
@@ -389,7 +389,7 @@ import，一般用于团队开发使用，可以将多个配置文件，导入�
 
 官方解释：
 
-![image-20210703152945104](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210703152945104.png)
+![image-20210703152945104](Spring.assets/image-20210703152945104.png)
 
 使用：
 
@@ -430,7 +430,7 @@ xmlns:c="http://www.springframework.org/schema/c"
 
 ### 6.4 Bean的作用域
 
-![image-20210703153703565](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210703153703565.png)
+![image-20210703153703565](Spring.assets/image-20210703153703565.png)
 
 1. 单例模式（Spring默认机制）
 
@@ -674,7 +674,7 @@ getBean("方法名字")
 
 ### 10.2 关于AOP
 
-![image-20210705135204358](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210705135204358.png)
+![image-20210705135204358](Spring.assets/image-20210705135204358.png)
 
 
 
@@ -717,7 +717,7 @@ getBean("方法名字")
 
 **面向切面编程**：通过预编译方式和运行期间动态代理实现程序功能的统一维护的一种技术
 
-![image-20210705175508572](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210705175508572.png)
+![image-20210705175508572](Spring.assets/image-20210705175508572.png)
 
 
 
@@ -733,7 +733,7 @@ getBean("方法名字")
 + 切入点：切面通知指向的“地点”的定义。（在哪个地方执行）
 + 连接点：与切入点匹配的执行点。（在哪个地方执行）
 
-![image-20210705180814700](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210705180814700.png)
+![image-20210705180814700](Spring.assets/image-20210705180814700.png)
 
 即AOP在不改变原有代码的情况下，去增加新的功能。
 
