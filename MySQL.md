@@ -544,7 +544,7 @@ DELETE FROM `student` WHERE `id` =1
 
 ## 4.==DQL查询数据（最重点）==
 
-![image-20210708163200765](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210708163200765.png)
+![image-20210708163200765](MySQL.assets/image-20210708163200765.png)
 
 
 
@@ -731,7 +731,7 @@ WHERE 'borndate' IS NOT NULL
 
 ### 4.4 ==联表查询(重要)==
 
-![img](https://img-blog.csdnimg.cn/20181103160140252.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2h1YW5nX18y,size_16,color_FFFFFF,t_70)
+![img](MySQL.assets/20181103160140252.png)
 
 ```sql
 -- ==========联表查询==========
@@ -1151,7 +1151,7 @@ https://blog.csdn.net/dengjili/article/details/82468576
 + 可重复读（repeatable-read）：事务级别
 + 串行化（serializable）：最高级别，事务与事务完全串行化执行，毫无并发可言，性能极低。
 
-![image-20210709162535775](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210709162535775.png)
+![image-20210709162535775](MySQL.assets/image-20210709162535775.png)
 
 这四个级别只是一个标准，各个数据库厂商，并不是完全按照这个标准执行
 
@@ -1385,9 +1385,9 @@ https://blog.csdn.net/weixin_52837751/article/details/116605537
 
 一张表必须有一个主键；非主键类必须完全依赖于主键，而不能只依赖主键的一部分。
 
-![image-20210712152111238](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210712152111238.png)
+![image-20210712152111238](MySQL.assets/image-20210712152111238.png)
 
-![image-20210712152122348](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210712152122348.png)
+![image-20210712152122348](MySQL.assets/image-20210712152122348.png)
 
 
 
@@ -1399,7 +1399,7 @@ https://blog.csdn.net/weixin_52837751/article/details/116605537
 
 非主键列必须直接依赖于主键，不能存在传递依赖。
 
-![image-20210712152156671](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210712152156671.png)
+![image-20210712152156671](MySQL.assets/image-20210712152156671.png)
 
 
 
@@ -1421,7 +1421,7 @@ https://blog.csdn.net/weixin_52837751/article/details/116605537
 
 简化开发人员的操作
 
-![image-20210712152915808](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210712152915808.png)
+![image-20210712152915808](MySQL.assets/image-20210712152915808.png)
 
 
 
@@ -1691,9 +1691,9 @@ Druid：阿里巴巴
 
 **DBCP**：
 
-需要用到的jar包：![image-20210714152338951](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210714152338951.png)
+需要用到的jar包：![image-20210714152338951](MySQL.assets/image-20210714152338951.png)
 
 
 
-**C3P0**:![image-20210714160810606](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210714160810606.png)
+**C3P0**:![image-20210714160810606](MySQL.assets/image-20210714160810606.png)
 

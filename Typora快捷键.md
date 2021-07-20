@@ -24,7 +24,7 @@
 
 下标 H~2~O 
 
-插入图片ctrl+shift+i![](C:\Users\Kou\Pictures\少女 女孩 背部写真唯美艺术插画4k动漫壁纸_彼岸图网.jpg)
+插入图片ctrl+shift+i![](Typora快捷键.assets/少女 女孩 背部写真唯美艺术插画4k动漫壁纸_彼岸图网.jpg)
 
 # 3.列表
 
@@ -51,7 +51,7 @@ tab下一级 shift+tab上一级
 
 插入表格ctrl+t
 
-![image-20210617152049738](C:\Users\Kou\AppData\Roaming\Typora\typora-user-images\image-20210617152049738.png)
+![image-20210617152049738](Typora快捷键.assets/image-20210617152049738.png)
 
 # 5.引用
 

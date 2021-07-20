@@ -30,7 +30,7 @@ shift+home/end：选中当前行
 
 ctrl+o：插入重写的方法
 
-
+ctrl+alt+t: 将所选代码使用选定的结构包起来
 
 
 

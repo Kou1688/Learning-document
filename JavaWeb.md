@@ -692,10 +692,11 @@ web服务器接收到客户端的http请求，会针对这个请求，分别创�
 2. #### 常见应用
 
    1. 向浏览器输出消息
-
-
-
-2. 下载文件
+   
+   
+   
+   2. ##### 下载文件
+   
    + 要获取下载文件的路径
    + 下载的文件名是什么？
    + 设置让浏览器能够支持下载我们需要的东西
@@ -706,6 +707,142 @@ web服务器接收到客户端的http请求，会针对这个请求，分别创�
    + 使用OutputStream将缓冲区中的数据输出到客户端
 
 
+
+下载示例：
+
+```java
+/**
+ * @author Kou
+ * @date: 2021/7/20 20:20
+ */
+public class FileServlet extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        //要获取下载文件的路径
+        String realPath = "D:\\code\\JavaEE\\JavaWebStudy\\javaweb-02-servlet\\response\\target\\classes\\img.png";
+        System.out.println("下载文件的路径:" + realPath);
+
+        //下载的文件名是什么
+        String fileName = realPath.substring(realPath.lastIndexOf("\\") + 1);
+
+        //设置让浏览器能够支持下载我们需要的东西
+        resp.setHeader("Content-disposition", "attachment;filename=" + URLEncoder.encode(fileName, "UTF-8"));
+
+        //获取下载文件的输入流
+        FileInputStream in = new FileInputStream(realPath);
+
+        //创建缓冲区
+        int len;
+        byte[] buffer = new byte[1024];
+
+        //获取OutputStream对象
+        ServletOutputStream out = resp.getOutputStream();
+
+        //将FileOutStream流写入缓冲区,使用OutputStream将缓冲区中的数据输出到客户端
+        while ((len = in.read(buffer)) != -1) {
+            out.write(buffer, 0, len);
+        }
+
+        //关闭流
+        out.close();
+        in.close();
+
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        doGet(req, resp);
+    }
+}
+```
+
+
+
+##### 验证码功能
+
+验证码怎么来的？
+
++ 前端实现
++ 后端实现，需要用到Java的图片类，生产一个图片
+
+```java
+/**
+ * @author Kou
+ * @date: 2021/7/20 20:59
+ */
+public class ImageServlet extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        //如何浏览器五秒自动刷新一次
+        resp.setHeader("refresh", "3");
+
+        //在内存中创建一个图片
+        BufferedImage bufferedImage = new BufferedImage(80, 20, BufferedImage.TYPE_INT_RGB);
+
+        //得到图片
+        //设置笔
+        Graphics2D g = (Graphics2D) bufferedImage.getGraphics();
+        //设置图片的背景颜色
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, 80, 20);
+        //给图片写数据
+        g.setColor(Color.BLUE);
+        g.setFont(new Font(null, Font.BOLD, 20));
+        g.drawString(makeNum(), 0, 20);
+
+        //告诉浏览器这个请求用图片的方式打开
+        resp.setContentType("image/jpg");
+        //网站存在缓存，我们需要不让浏览器缓存
+        resp.setDateHeader("expires", -1);
+        resp.setHeader("Cache-Control", "no-cache");
+        resp.setHeader("Pragma", "no-cache");
+        //把图片写给浏览器
+        ImageIO.write(bufferedImage,"jpg",resp.getOutputStream());
+    }
+
+    /**
+     * 生成随机数
+     */
+    private String makeNum() {
+        Random random = new Random();
+        String num = random.nextInt(9999999) + "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 7 - num.length(); i++) {
+            sb.append("0");
+        }
+        num = sb + num;
+        return num;
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        doGet(req, resp);
+    }
+}
+```
+
+
+
+##### ==重定向==
+
+B收到A客户端发出的请求，B让A去访问资源C。
+
+```java
+resp.sendRedirect("/response/img");
+```
+
+==重定向和转发的区别==
+
+相同点：
+
++ 页面都会跳转
+
+不同点：
+
++ 请求转发的时候，url不会发生变化
++ 重定向时，url会发生变化
++ 请求转发发生在服务器端
++ 重定向发生在客户端
 
 
 
