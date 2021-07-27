@@ -12,7 +12,7 @@ MySql驱动8.0.11版本的一些使用注意事项
 
 3>解决：Loading class `com.mysql.jdbc.Driver'. This is deprecated. The new driver class is `com.mysql.cj.jdbc.Driver'. The driver is automatically registered via the SPI and manual loading of the driver class is generally unnecessary.
 
-不能这样 driverClass="com.mysql.jdbc.Driver" 写了，应该修改成 driverClass="com.mysql.cj.jdbc.Driver"
+不能这样 driverClass="com.mysql.jdbc.Driver"写了，应该修改成 driverClass="com.mysql.cj.jdbc.Driver"
 
 
 

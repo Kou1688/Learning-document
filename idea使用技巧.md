@@ -1,3 +1,13 @@
+[TOC]
+
+
+
+
+
+
+
+
+
 # idea使用技巧
 
 ## 快捷键篇
@@ -32,7 +42,9 @@ ctrl+o：插入重写的方法
 
 ctrl+alt+t: 将所选代码使用选定的结构包起来
 
+ctrl+shift+/：多行注释块
 
+ctrl+shift+alt：多行操作
 
 
 
@@ -158,3 +170,27 @@ war exploded模式：将WEB工程以当前文件夹的位置关系上传到服�
 Cannot build artifact 'servlet-01:war exploded' because it is included into a circular dependency (artifact 'servlet-01:war exploded', artifact 'servlet-01:war exploded')
 
 在.idea文件夹将重复的war文件删除
+
+
+
+### tomcat乱码问题
+
+将配置文件logging.properties里utf-8全部改为gbk即可解决
+
+
+
+### jstl标签500错误
+
+rg.apache.jasper.JasperException: 无法在web.xml或使用此应用程序部署的jar文件中解析绝对uri：[http://java.sun.com/jsp/jstl/core]
+
+tomcat服务器里缺少standard与jstl-api的jar包，需要手动添加
+
+
+
+
+
+### SQL dialect is not configured.
+
+idea中SQL语句经常提示SQL Dialect is Not Configured，主要是我们没有配置数据库
+
+在File---->Setting--->Languages & Frameworks--->SQL Dialects中，选择对应的数据库，如MySQL，之后点击保存即可。
