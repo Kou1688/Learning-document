@@ -1,3 +1,7 @@
+[TOC]
+
+
+
 # SSM
 
 
@@ -426,4 +430,300 @@ singleton:单例(默认)
 <bean id="book" class="com.kou.bean.Book">
 </bean>
 ```
+
+
+
+
+
+##### 配置工厂方法创建的bean
+
+实验五:配置通过静态工厂方法创建的bean、实例工厂方法创建的bean、FactoryBean
+
+bean的创建默认就是框架利用反射new出来的bean实例
+工厂模式:工厂帮我们创建对象
+静态工厂:工厂本身不用创建对象;通过静态方法调用,对象=工厂类.工厂方法名();
+实例工厂:工厂本身需要创建对象;
+工厂类 工厂对象=new 工厂类();
+工厂对象.方法名("");
+
+
+
+```xml
+<!--1.静态工厂(不需要创建工厂本身) factory-method指定工厂方法-->
+<bean id="airPlane01" class="com.kou.factory.AirPlaneStaticFactory" factory-method="getAirPlane">
+    <!--可以为方法指定参数-->
+    <constructor-arg value="李四"/>
+</bean>
+```
+
+
+
+```xml
+<!--2.实例工厂
+    先配置出实例工厂对象
+    配置我们要创建的AirPlane使用哪个工厂创建
+    factory-bean:使用哪个工厂实例
+    factory-method:使用哪个工厂方法
+-->
+<bean id="airPlaneInstanceFactory" class="com.kou.factory.AirPlaneInstanceFactory"/>
+<bean id="airPlane02" class="com.kou.bean.AirPlane" factory-bean="airPlaneInstanceFactory"
+      factory-method="getAirPlane">
+    <constructor-arg value="张三"/>
+</bean>
+```
+
+
+
+###### 实现FactoryBean的工厂
+
+```java
+/**
+ * 实现了FactoryBean接口的类是Spring可以认识的工厂类
+ * Spring会自动地调用工厂方法创建实例
+ * 1.编写一个FactoryBean的实现类
+ * 2.在spring配置文件中进行注册
+ *
+ * @author Kou
+ * @date: 2021/7/28 15:25
+ */
+public class MyFactoryBeanImpl implements FactoryBean<Book> {
+
+    /**
+     * 是单例?
+     *
+     * @return false:不是单例;true:是单例
+     */
+    @Override
+    public boolean isSingleton() {
+        return false;
+    }
+
+    /**
+     * 工厂方法;
+     *
+     * @return 返回创建的对象
+     */
+    @Override
+    public Book getObject() throws Exception {
+        Book book = new Book();
+        book.setBookName(UUID.randomUUID().toString());
+        return book;
+    }
+
+    /**
+     * Spring会自动调用这个方法来确认创建的对象是什么类型
+     *
+     * @return 返回创建的对象类型
+     */
+    @Override
+    public Class<?> getObjectType() {
+        return Book.class;
+    }
+}
+```
+
+```xml
+<!--FactoryBean是Spring规定的一个接口,只要是这个接口的实现类.Spring都认为是一个工厂
+ioc容器启动时不会创建工厂实例-->
+<bean id="myFactoryBeanImpl" class="com.kou.factory.MyFactoryBeanImpl"/>
+```
+
+
+
+##### 创建带有生命周期方法的Bean
+
+
+
+代码：ioc_02
+
+```xml
+<!--
+创建带有生命周期方法的bean
+生命周期:bean的创建到销毁
+    ioc容器中注册的bean：
+        1.单例的bean,容器启动的时候就会创建好,容器关闭也会销毁创建的bean
+        2.多实例bean,获取的时候才创建;
+    我们可以为bean自定义一些生命周期方法;spring在创建或者销毁的时候就会调用指定的方法
+    自定义初始化方法和销毁方法:可以抛异常,但不能有参数
+-->
+<bean id="book01" class="com.kou.bean.Book" init-method="myInit" destroy-method="myDestroy" scope="prototype">
+</bean>
+```
+
+```java
+/**
+ * Bean的生命周期
+ * 单例:
+ * 构造器---->初始化方法---->(容器关闭)销毁方法
+ * 多实例:
+ * 获取bean(构造器--->初始化方法)---->容器关闭不会调用bean的销毁方法
+ */
+```
+
+
+
+
+
+##### Bean的后置处理器
+
+```java
+/**
+ * 1.编写后置处理器的实现类
+ * 2.将后置处理器注册在配置文件中
+ *
+ * @author Kou
+ * @date: 2021/7/28 18:02
+ */
+public class MyBeanPostProcessor implements BeanPostProcessor {
+    /**
+     * 初始化之前调用
+     *
+     * @param bean 将要初始化的bean
+     * @return 返回传入的bean
+     */
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        System.out.println(beanName + " bean将调用初始化方法 " + bean);
+        return bean;
+    }
+
+    /**
+     * 初始化方法之后调用
+     *
+     * @param bean     初始化的bean
+     * @param beanName 在xml中配置的id
+     * @return 返回的是什么,容器中保存的就是什么
+     */
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        System.out.println(beanName + " bean初始化方法调用完了 " + bean);
+        return bean;
+    }
+}
+```
+
+```xml
+<!--
+测试bean的后置处理器
+Spring有一个接口:后置处理器:可以在bean的初始化前后调用方法
+无论bean是否有初始化方法;后置处理器都会默认其有
+-->
+<bean id="beanPostProcessor" class="com.kou.bean.MyBeanPostProcessor"/>
+```
+
+
+
+##### Spring管理连接池
+
+
+
+```xml
+<!--实验12:引用外部配置文件*-->
+<!--数据库连接池作为单实例是最好的;一个项目就一个连接池,连接池里面管理很多连接-->
+<!--可以让Spring帮我们创建连接池对象,（管理连接池）-->
+<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+    <property name="user" value="root"/>
+    <property name="password" value="1234"/>
+    <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/jdbcstudy?
+    serverTimezone=GMT%2B8&amp;useSSL=false&amp;useUnicode=true&amp;characterEncoding=utf8"/>
+    <property name="driverClass" value="com.mysql.cj.jdbc.Driver"/>
+</bean>
+```
+
+测试：
+
+```java
+/**
+ * 从容器中拿到连接池
+ */
+@Test
+public void test02() throws SQLException {
+    //按照类型获取，可以获取这个类型下的所有类子类等等
+    DataSource bean = ioc.getBean("dataSource",DataSource.class);
+    System.out.println(bean.getConnection());
+}
+```
+
+
+
+引用外部文件：
+
+```xml
+<!--实验12:引用外部配置文件*,依赖Context名称空间-->
+<!--数据库连接池作为单实例是最好的;一个项目就一个连接池,连接池里面管理很多连接-->
+<!--可以让Spring帮我们创建连接池对象,（管理连接池）-->
+<!--加载外部配置文件  classpath:表示引用类路径下的文件-->
+<context:property-placeholder location="classpath:dbconfig.properties"/>
+<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+    <property name="user" value="${jdbc.username}"/>
+    <property name="password" value="${jdbc.password}"/>
+    <property name="jdbcUrl" value="${jdbc.Url}"/>
+    <property name="driverClass" value="${jdbc.driverClass}"/>
+</bean>
+```
+
+
+
+##### SPEL测试
+
+spring expression language   spring表达式语言
+
+```xml
+<!--SPel测试-->
+<bean id="person04" class="com.kou.bean.Person">
+    <!--字面量-->
+    <property name="age" value="#{12345*6}"/>
+    <!--引用其他bean的属性值-->
+    <property name="lastName" value="#{book01.bookName}"/>
+    <property name="car" value="#{car}"/>
+    <!--调用静态方法-->
+    <property name="email" value="#{T(java.util.UUID).randomUUID().toString()}"/>
+    <!--调用非静态方法-->
+    <property name="gender" value="#{book01.getBookName()}"/>
+</bean>
+```
+
+
+
+
+
+### 1.5 基于XML的自动装配（自定义类型自动赋值）
+
+自定义类型的属性是一个对象，这个对象在容器中可能存在
+
+```xml
+<bean id="car" class="com.kou.bean.Car">
+    <property name="carName" value="宝马"/>
+    <property name="color" value="白色"/>
+</bean>
+<bean id="book01" class="com.kou.bean.Book">
+    <property name="bookName" value="book1"/>
+</bean>
+<bean id="book02" class="com.kou.bean.Book">
+    <property name="bookName" value="book2"/>
+</bean>
+<bean id="book03" class="com.kou.bean.Book">
+    <property name="bookName" value="book3"/>
+</bean>
+
+<!--自动赋值(自动装配):仅限于对自定义类型有效
+    按照某种规则自动装配
+    autowire="byName"
+    按照名字:private Car car;
+    1.以属性名作为id去容器中找到这个组件,给它赋值。如果找不到就装配null
+    autowire="byType"
+    1.按照属性类型作为查找依据去容器中找到这个组件;
+    ioc.getBean(Car.class)
+    2.如果容器中有多个这种类型的组件,报错
+    3.如果没找到,装配null
+    按照构造器:autowire="constructor"
+    1.先按照有参构造器参数的类型进行装配,没有就直接为组件装配null
+    2.如果按照类型找到多个;参数名作为id继续匹配
+    3.不会报错
+自动为属性赋值
+-->
+<bean id="person" class="com.kou.bean.Person" autowire="byType"/>
+```
+
+
 
