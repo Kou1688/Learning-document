@@ -60,6 +60,12 @@ ctrl+shift+alt：多行操作
 
 
 
+## Debug篇
+
+
+
+
+
 
 
 ## 使用idea连接数据库
@@ -194,3 +200,13 @@ tomcat服务器里缺少standard与jstl-api的jar包，需要手动添加
 idea中SQL语句经常提示SQL Dialect is Not Configured，主要是我们没有配置数据库
 
 在File---->Setting--->Languages & Frameworks--->SQL Dialects中，选择对应的数据库，如MySQL，之后点击保存即可。
+
+
+
+### SpringJUnit4ClassRunner requires JUnit 4.12 or higher.
+
+```java
+@RunWith(SpringJUnit4ClassRunner.class)
+```
+
+Spring单元测试 Junit版本必须是4.13以上
