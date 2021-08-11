@@ -163,7 +163,9 @@ war exploded模式：将WEB工程以当前文件夹的位置关系上传到服�
 
 
 
+## 配置maven仓库
 
+　　除了现有的属性配置，还需要添加一个配置archetypeCatalog的value为internal，
 
 
 

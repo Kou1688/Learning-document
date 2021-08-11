@@ -2053,6 +2053,12 @@ BeanFactory：bean工厂；工厂模式；帮用户创建bean
 
 ### 2.3 Spring MVC HelloWorld
 
+
+
+![image-20210811171328204](SSM.assets/image-20210811171328204.png)
+
+**代码：helloworld**
+
 流程：
 
 + 导包
@@ -2158,3 +2164,1182 @@ index.html：静态资源，tomcat就会在服务器下找到这个资源并返�
  3）为什么jsp又能访问；因为我们没有覆盖服务器中的JspServlet的配置    
 
 4） /* 直接就是拦截所有请求；我们写/；也是为了迎合后来Rest风格的URL地址
+
+
+
+#### 2.3.2 @RequestMapping
+
+
+
+##### 标注在类或方法上
+
+标注在类上：提供初步的请求映射信息。相对于WEB应用的根目录
+
+```java
+-@RequestMapping为当前类所有方法的请求地址指定一个基准路径
+```
+
+标注在方法上：提供进一步细分映射信息。相对于类定义处的URL。
+
+
+
+##### @RequestMapping的几个方法
+
+```java
+/**
+ * -@RequestMapping为当前类所有方法的请求地址指定一个基准路径
+ *
+ * @author Kou
+ * @date: 2021/8/6 11:28
+ */
+@Controller
+@RequestMapping("/haha")
+public class RequestMappingController {
+
+    @RequestMapping("/handle01")
+    public String handle01() {
+        System.out.println("RequestMappingController....handle01");
+        return "success";
+    }
+
+    /**
+     * RequestMapping的其他属性
+     * method:限定请求方式,默认全接收
+     * 【GET】, 【HEAD】, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
+     * 不是规定的方式就会报错405.4xx都是客户端错误
+     * <p>
+     * params:规定请求参数
+     * headers:规定请求头;也和params一样能写简单的表达式
+     * consumes:只接收内容类型是哪种的请求,规定请求头中的Content-Type
+     * produces:告诉浏览器返回的内容类型是什么，给响应头中加上Content-Type
+     */
+    @RequestMapping(value = "/handle02", method = RequestMethod.GET)
+    public String handle02() {
+        return "success";
+    }
+
+    /**
+     * params和headers支持简单的表达式
+     * param1:表示请求必须包含名为param1的请求参数
+     * params={"username"}
+     * params={"username=123"}
+     * 发送请求时必须带上一个名为username username=123的参数;没带都会404
+     * params={"!username"}
+     * 发送请求时不能携带一个名为username的参数;
+     * params ={"param1=value1","param2"}
+     * 满足多个条件
+     */
+    @RequestMapping(value = "/handle03", params = {"username"})
+    public String handle03() {
+        return "success";
+    }
+
+    /**
+     * User-Agent:浏览器信息
+     * 谷歌浏览器信息:
+     * Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36
+     * EDGE信息:
+     * Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36 Edg/92.0.902.62
+     */
+    @RequestMapping(value = "/handle04", headers = {"User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36 Edg/92.0.902.62"})
+    public String handle04() {
+        System.out.println("handle04....");
+        return "success";
+    }
+}
+```
+
+
+
+
+
+##### ant风格url
+
+```java
+/**
+ * RequestMapping模糊匹配
+ * Url地址可以写模糊的通配符:
+ * ?:能替代任意一个字符
+ * *:能替代任意多个字符和一层路径
+ * **:能替代多层路径
+ *
+ * @author Kou
+ * @date: 2021/8/6 15:58
+ */
+@Controller
+public class RequestMappingTest {
+
+    @RequestMapping("/antTest01")
+    public String antTest01() {
+        System.out.println("精确请求地址antTest01");
+        return "success";
+    }
+
+    /**
+     * ?匹配一个字符
+     * 模糊和精确多个匹配情况下,精确优先
+     */
+    @RequestMapping("/antTest0?")
+    public String antTest02() {
+        System.out.println("antTest02....");
+        return "success";
+    }
+
+    /**
+     * 匹配多个字符或一层路径
+     */
+    @RequestMapping("/antTest0*")
+    public String antTest03() {
+        System.out.println("antTest03....");
+        return "success";
+    }
+
+    @RequestMapping("/a*/antTest01")
+    public String antTest04() {
+        System.out.println("antTest04....");
+        return "success";
+    }
+
+    /**
+     * 匹配多层路径
+     */
+    @RequestMapping("/**/antTest0?")
+    public String antTest05() {
+        System.out.println("antTest05....");
+        return "success";
+    }
+}
+```
+
+
+
+##### 占位符 @PathVariable
+
+```java
+/**
+ * 路径上可以有占位符:占位符语法就是可以在任意路径的地方写一个{变量名}
+ * 路径上的占位符只能占一层路径
+ */
+@RequestMapping("/user/{id}")
+public String pathVariableTest(@PathVariable("id") String id) {
+    System.out.println("路径上的占位符的值:" + id);
+    return "success";
+}
+```
+
+
+
+#### 2.3.3 REST
+
+REST:资源表现层状态转化。是一种软件架构思想。
+
+系统希望以非常简洁的URL地址来发请求
+
+怎样表示对一个资源的增删改查用请求方式来区分
+
+REST推荐：/资源名/资源标识符
+
+/book/1    ：GET-----查询一号图书
+
+/book/1	:PUT------更新1号图书
+
+/book/1	:DELETE-------删除1号图书
+
+/book		:POST------添加图书
+
+系统的URL地址就这么来设计即可；
+
+简洁的URL地址提交请求，以请求方式区分对资源的操作
+
+
+
+问题：从页面上只能发起两种请求，GET、POST；其他请求方式没法使用
+
+
+
+##### 使用Rest构建一个增删改查系统
+
+代码：springmvc_rest
+
+```java
+@Override
+protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+      throws ServletException, IOException {
+   HttpServletRequest requestToUse = request;
+   if ("POST".equals(request.getMethod()) && request.getAttribute(WebUtils.ERROR_EXCEPTION_ATTRIBUTE) == null) {
+       //获取表单上_method带来的值
+      String paramValue = request.getParameter(this.methodParam);
+      if (StringUtils.hasLength(paramValue)) {
+         String method = paramValue.toUpperCase(Locale.ENGLISH);
+         if (ALLOWED_METHODS.contains(method)) {
+            requestToUse = new HttpMethodRequestWrapper(request, method);
+         }
+      }
+   }
+```
+
+高版本Tomcat在转发页面添加:
+
+```jsp
+isErrorPage="true"
+```
+
+
+
+```jsp
+<%--
+发起图书的增删改查请求:使用REST风格的增删改查地址;
+/book/1 GET:查询1号图书
+/book/1 DELETE:删除1号图书
+/book/1 PUT:更新1号图书
+/book/1 POST:添加1号图书
+
+从页面发起PUT、DELETE形式的请求
+1.SpringMVC中有一个filter:他可以把普通的请求转化为规定形式的请求:配置这个filter
+<filter>
+    <filter-name>hiddenHttpMethodFilter</filter-name>
+    <filter-class>org.springframework.web.filter.HiddenHttpMethodFilter</filter-class>
+</filter>
+<filter-mapping>
+    <filter-name>hiddenHttpMethodFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+
+2.如何发起其他形式请求?
+    按照以下要求:1.创建一个post类型的表单
+               2.表单项中携带一个_method的参数
+               3.这个_method的值就是delete或者put
+--%>
+<a href="book/1">查询图书</a><br/>
+
+<form action="book" method="post">
+    <input type="submit" value="添加1号图书">
+</form>
+<br/>
+
+<form action="book/1" method="post">
+    <input name="_method" value="DELETE"/>
+    <input type="submit" value="删除一号图书">
+</form>
+<br>
+
+<form action="book/1" method="post">
+    <input name="_method" value="PUT"/>
+    <input type="submit" value="更新一号图书">
+</form>
+```
+
+```java
+/**
+ * 处理查询图书
+ *
+ * @param id 图书id
+ */
+@RequestMapping(value = "/book/{bid}", method = RequestMethod.GET)
+public String getBook(@PathVariable("bid") Integer id) {
+    System.out.println("查询到了" + id + "号图书");
+    return "success";
+}
+@RequestMapping(value = "/book", method = RequestMethod.POST)
+public String addBook() {
+    System.out.println("添加了新的图书");
+    return "success";
+}
+@RequestMapping(value = "/book/{bid}", method = RequestMethod.DELETE)
+public String deleteBook(@PathVariable("bid") Integer id) {
+    System.out.println("删除了" + id + "号图书");
+    return "success";
+}
+@RequestMapping(value = "/book/{bid}", method = RequestMethod.PUT)
+public String updateBook(@PathVariable("bid") Integer id) {
+    System.out.println("更新了" + id + "号图书");
+    return "success";
+}
+```
+
+
+
+
+
+#### 2.3.4 请求参数处理
+
+
+
+==**代码：request**==
+
+
+
+##### @RequestParam---获取请求参数的值
+
+```html
+<a href="handle01?user=tomcat">handle01</a>
+```
+
+```java
+/**
+ * SpringMVC如何获取请求带来的各种信息
+ * 默认方式获取请求参数:
+ * 直接给方法入参上写一个和请求参数名相同的变量。这个参数就来接收请求参数的值
+ * 带:有值 没带:null
+ * <p>
+ * -@RequestParam:获取请求参数,参数默认是必须带的
+ * -@RequestParam("user") String username
+ * username=request.getParameter("user")
+ * value:指定要获取的参数的key
+ * required:参数是否为必填项(是否能为null?)
+ * defaultValue:当请求参数未提供或具有空值时用作回退的默认值。
+ * <p>
+ */
+@RequestMapping("/handle01")
+public String handle02(@RequestParam(value = "user", required = false) String username) {
+    System.out.println("这个变量的值:" + username);
+    return "success";
+}
+```
+
+
+
+##### @RequestHeader---获取请求头中某个key的值
+
+```java
+/**
+ * SpringMVC如何获取请求带来的各种信息
+ * 默认方式获取请求参数:
+ * 直接给方法入参上写一个和请求参数名相同的变量。这个参数就来接收请求参数的值
+ * 带:有值 没带:null
+ * <p>
+ * -@RequestHeader:获取请求头中某个key的值
+ * -@RequestHeader("User-Agent") String userAgent
+ * userAgent=request.getHeader("User-Agent")
+ * 获取一个不存在的请求头参数回报500错误
+ * value:指定要获取的参数的key
+ * required:参数是否为必填项(是否能为null?)
+ * defaultValue:当请求参数未提供或具有空值时用作回退的默认值。
+ */
+@RequestMapping("/handle01")
+public String handle02(@RequestHeader(value = "User-Agent",required = false) String userAgent) {
+    System.out.println("请求头中浏览器的信息:" + userAgent);
+    return "success";
+}
+```
+
+
+
+##### @CookieValue---获取某个Cookie的值
+
+```java
+/**
+ * SpringMVC如何获取请求带来的各种信息
+ * 默认方式获取请求参数:
+ * 直接给方法入参上写一个和请求参数名相同的变量。这个参数就来接收请求参数的值
+ * 带:有值 没带:null
+ * <p>
+ * -@CookieValue:获取某个Cookie的值
+ * 以前的操作获取某个Cookie:
+ * Cookie[] cookies=request.getCookies;
+ * for(Cookie c:cookies){
+ * if("JSESSIONID".equals(c.getName())){
+ * String cv=c.getValue();
+ * }
+ * }
+ * 获取一个不存在的Cookie参数会报500错误
+ * value:指定要获取的参数的key
+ * required:参数是否为必填项(是否能为null?)
+ * defaultValue:当请求参数未提供或具有空值时用作回退的默认值。
+ */
+@RequestMapping("/handle01")
+public String handle02(@CookieValue(value = "JSESSIONID",required = false) String jid) {
+    System.out.println("Cookie中JSESSIONID的值 :" + jid);
+    return "success";
+}
+```
+
+
+
+
+
+##### 传入POJO-Spring MVC自动封装
+
+```html
+<form action="book" method="post">
+    书名:<input type="text" name="bookName"/><br/>
+    作者:<input type="text" name="author"/><br/>
+    价格:<input type="text" name="price"/><br/>
+    库存:<input type="text" name="stock"/><br/>
+    销量:<input type="text" name="sales"/><br/>
+    <hr/>
+    作者省:<input type="text" name="address.province"/>
+    市:<input type="text" name="address.city"/>
+    街道:<input type="text" name="address.street"/>
+    <input type="submit"/>
+</form>
+```
+
+```java
+/**
+ * 如果我们的请求参数是一个POJO;
+ * SpringMVC会自动的为这个POJO进行赋值?
+ * 1.将POJO中的每一个属性从request参数中尝试获取出来,并封装即可
+ * 2.还可以级联封装(属性的属性)
+ */
+@RequestMapping("/book")
+public String addBook(Book book) {
+    System.out.println("我要保存的图书:" + book);
+    return "success";
+}
+```
+
+
+
+##### 传入原生API
+
+```java
+/**
+ * SpringMVC可以直接在参数上写原生API
+ * HttpServletRequest
+ * HttpSession
+ */
+@RequestMapping("/handle03")
+public String handle03(HttpSession session, HttpServletRequest request) {
+    request.setAttribute("reqParam", "我是请求域中的");
+    session.setAttribute("sessionParam", "我是Session域中的");
+    return "success";
+}
+```
+
+
+
+##### 解决乱码问题
+
+```java
+/**
+ * 如果我们的请求参数是一个POJO;
+ * SpringMVC会自动的为这个POJO进行赋值?
+ * 1.将POJO中的每一个属性从request参数中尝试获取出来,并封装即可
+ * 2.还可以级联封装(属性的属性)
+ * <p>
+ * 提交的数据可能有乱码:
+ * 请求乱码:
+ * GET请求:改Tomcat的:server.xml 8080端口下:URIEncoding="UTF-8"
+ * POST请求:
+ */
+```
+
+```xml
+<!--使用SpringMVC前端控制器写完就直接写字符编码-->
+<!--配置一个字符编码的Filter-->
+<filter>
+    <filter-name>characterEncodingFilter</filter-name>
+    <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+    <!--解决POST请求乱码-->
+    <init-param>
+        <param-name>encoding</param-name>
+        <param-value>UTF-8</param-value>
+    </init-param>
+    <init-param>
+        <param-name>forceRequestEncoding</param-name>
+        <param-value>true</param-value>
+    </init-param>
+    <!--解决响应乱码-->
+    <init-param>
+        <param-name>forceResponseEncoding</param-name>
+        <param-value>true</param-value>
+    </init-param>
+</filter>
+<filter-mapping>
+    <filter-name>characterEncodingFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+```
+
+
+
+
+
+#### 2.3.5 数据输出
+
+**代码：output**
+
+
+
+##### 传入Model Map ModelMap----传入请求域中
+
+```java
+/**
+ * 1.可以在方法处传入Map,Model,ModelMap。给这些参数里面保存的所有数据都会放在域中。可以在页面获取
+ *
+ 1.可以在方法处传入Map,Model,ModelMap。给这些参数里面保存的所有数据都会放在域中。可以在页面获取
+这三个最终都是BindingAwareModelMap在工作
+相当于BindingAwareModelMap中保存的东西都会被放在请求域中
+public interface Map<K,V>        public interface Model
+         ||                              //
+         ||                             //
+         \/                            //
+public class ModelMap                 //
+                   \\                //
+              *     ExtendedModelMap
+              *              ||
+              *              ||
+              *              \/
+              *     BindingAwareModelMap
+ 
+ 
+ * @author Kou
+ * @date: 2021/8/9 15:16
+ */
+@Controller
+public class OutputController {
+
+    @RequestMapping("/handle01")
+    public String handle01(Map<String, Object> map) {
+        map.put("msg", "你好");
+        return "success";
+    }
+
+    @RequestMapping("handle02")
+    public String handle02(Model model) {
+        model.addAttribute("msg", "你好坏");
+        return "success";
+    }
+
+    @RequestMapping("handle03")
+    public String handle03(ModelMap modelMap) {
+        modelMap.addAttribute("msg", "你好棒");
+        return "success";
+    }
+
+}
+```
+
+
+
+##### 方法返回值为ModelAndView
+
+数据还是在请求域
+
+```java
+/**
+2.方法的返回值可以变为ModelAndView
+既包含视图信息(页面地址)也包含模型数据(给页面带的数据);
+而且数据是放在请求域中;
+*/
+
+@RequestMapping("/handle04")
+public ModelAndView handle04() {
+    //之前的返回值我们就叫视图名;视图名视图解析器是会帮我们最终拼串得到页面的真实地址
+    ModelAndView view = new ModelAndView("success");
+    view.addObject("msg", "你好哦!");
+    return view;
+}
+```
+
+
+
+
+
+##### @SessionAttributes给session放数据
+
+```java
+/**
+* 3.SpringMVC提供了一种可以临时给Session域中保存数据的方式;
+ * 使用了一个注解 @SessionAttributes（只能标在类上）
+ * -@SessionAttributes(value = "msg")
+ * 给BindingAwareModelMap中保存的数据,同时给session放一份
+ * value指定保存数据时要给session中放的数据key
+ * types = {String.class}:只要保存的是这种类型的数据，给session也放一份
+	给session放数据推荐用原生API
+ */
+@SessionAttributes(value = {"msg"}, types = {String.class})
+```
+
+
+
+##### 全字段更新引发的问题以及解决思想
+
+![image-20210809171344168](SSM.assets/image-20210809171344168.png)
+
+![image-20210809171356865](SSM.assets/image-20210809171356865.png)
+
+![image-20210809171405969](SSM.assets/image-20210809171405969.png)
+
+![image-20210809171900718](SSM.assets/image-20210809171900718.png)
+
+![image-20210809174202274](SSM.assets/image-20210809174202274.png)
+
+
+
+
+
+#### 2.3.6 Spring MVC源码分析
+
+
+
+##### DispatcherServlet结构分析
+
+前端控制器的架构？
+
+![image-20210809193007733](SSM.assets/image-20210809193007733.png)
+
+
+
+
+
+##### 请求处理的大致流程
+
+###### doDispatch的详细细节
+
+```java
+protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
+   HttpServletRequest processedRequest = request;
+   HandlerExecutionChain mappedHandler = null;
+   boolean multipartRequestParsed = false;
+   WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+   try {
+      ModelAndView mv = null;
+      Exception dispatchException = null;
+      try {
+          
+          //1.检查是否是文件上传请求
+         processedRequest = checkMultipart(request);
+         multipartRequestParsed = (processedRequest != request);
+          
+          //2.根据当前的请求地址找到哪个类能来处理
+         // Determine handler for the current request.
+         mappedHandler = getHandler(processedRequest);
+          
+          //3.如果没有找到哪个处理器(控制器)能处理这个请求就404或抛异常
+         if (mappedHandler == null) {
+            noHandlerFound(processedRequest, response);
+            return;
+         }
+          
+          //4.拿到能执行这个类的所有方法的适配器;（反射工具）
+         // Determine handler adapter for the current request.
+         HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
+          
+         // Process last-modified header, if supported by the handler.
+         String method = request.getMethod();
+         boolean isGet = "GET".equals(method);
+         if (isGet || "HEAD".equals(method)) {
+            long lastModified = ha.getLastModified(request, mappedHandler.getHandler());
+            if (new ServletWebRequest(request, response).checkNotModified(lastModified) && isGet) {
+               return;
+            }
+         }
+         if (!mappedHandler.applyPreHandle(processedRequest, response)) {
+            return;
+         }
+          
+         //5.处理器（控制器）的方法被调用
+         //适配器执行目标方法;将目标方法执行完成后的返回值作为视图名,设置保存到ModelAndView中
+          //目标方法无论怎么写,最终适配器执行完成以后都会将执行后的信息封装成ModelAndView
+         // Actually invoke the handler.
+         mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
+         if (asyncManager.isConcurrentHandlingStarted()) {
+            return;
+         }
+          
+          //如果没有视图名设置一个默认的视图名
+         applyDefaultViewName(processedRequest, mv);
+         mappedHandler.applyPostHandle(processedRequest, response, mv);
+      }
+      catch (Exception ex) {
+         dispatchException = ex;
+      }
+      catch (Throwable err) {
+         // As of 4.3, we're processing Errors thrown from handler methods as well,
+         // making them available for @ExceptionHandler methods and other scenarios.
+         dispatchException = new NestedServletException("Handler dispatch failed", err);
+      }
+       
+       //6.转发到目标页面
+       //根据方法最终执行完成后封装的ModelAndView;
+       //转发到对应页面,而且ModelAndView中的数据可以从请求域中获取
+      processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
+   }
+   catch (Exception ex) {
+      triggerAfterCompletion(processedRequest, response, mappedHandler, ex);
+   }
+   catch (Throwable err) {
+      triggerAfterCompletion(processedRequest, response, mappedHandler,
+            new NestedServletException("Handler processing failed", err));
+   }
+   finally {
+      if (asyncManager.isConcurrentHandlingStarted()) {
+         // Instead of postHandle and afterCompletion
+         if (mappedHandler != null) {
+            mappedHandler.applyAfterConcurrentHandlingStarted(processedRequest, response);
+         }
+      }
+      else {
+         // Clean up any resources used by a multipart request.
+         if (multipartRequestParsed) {
+            cleanupMultipart(processedRequest);
+         }
+      }
+   }
+}
+```
+
+![image-20210811171346147](SSM.assets/image-20210811171346147.png)
+
+1. 所有请求过来DispatcherServlet收到请求
+
+2. 调用doDispatch()方法进行处理
+
+   1. getHandler()：根据当前请求地址找到能处理这个请求的目标处理器类(处理器)
+
+      根据当前请求在HandlerMapping中找到这个请求的映射信息，获取到目标处理器类
+
+   2. ==getHandlerAdapter(); 根据当前处理器类获取到能执行这个处理器方法的适配器==
+
+      根据当前处理器类，找到当前类的HandlerAdapter(适配器)
+
+   3. ==使用刚才获取到的适配器(RequestMappingHandlerAdapter)执行目标方法==
+
+   4. ==目标方法执行后会返回一个ModelAndView对象==
+
+   5. 根据ModelAndView的信息转发到具体的页面，并可以在请求域中取出ModelAndView的模型数据
+
+
+
+##### HandlerMapping保存请求映射信息
+
+###### getHandler()细节：怎么根据当前请求就能找到哪个类能来处理
+
+
+
+getHandler()会返回目标处理器类的执行链
+
+![image-20210810161917888](SSM.assets/image-20210810161917888.png)
+
+
+
+
+
+```java
+protected HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
+   if (this.handlerMappings != null) {
+      for (HandlerMapping mapping : this.handlerMappings) {
+         HandlerExecutionChain handler = mapping.getHandler(request);
+         if (handler != null) {
+            return handler;
+         }
+      }
+   }
+   return null;
+}
+```
+
+HandlerMapping：处理器映射：它里面保存了每一个处理器能处理哪些方法的映射信息
+
+handlerMap：ioc容器启动创建Controller对象的时候扫描每个处理器都能处理什么请求保存
+
+![image-20210810162614105](SSM.assets/image-20210810162614105.png)
+
+![](SSM.assets/image-20210810164048242.png)
+
+
+
+
+
+##### 如何找到目标处理器的适配器
+
+要拿适配器才去执行目标方法
+
+RequestMappingHandlerAdapter:能解析注解的适配器
+
+处理器类中只要有标了注解的这些方法就能用它
+
+```java
+protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletException {
+   if (this.handlerAdapters != null) {
+      for (HandlerAdapter adapter : this.handlerAdapters) {
+         if (adapter.supports(handler)) {
+            return adapter;
+         }
+      }
+   }
+   throw new ServletException("No adapter for handler [" + handler +
+         "]: The DispatcherServlet configuration needs to include a HandlerAdapter that supports this handler");
+}
+```
+
+
+
+
+
+##### SpringMVC的九大组件
+
+DispatcherServlet中有几个引用类型的属性：SpringMVC的九大组件
+
+SpringMVC在工作的时候，关键位置都是由这些组件完成的
+
+共同点：九大组件全部都是接口，接口就是规范：提供了非常强大的扩展性
+
+SpringMVC的九大组件的工作原理
+
+```java
+@Nullable
+//文件上传解析器
+private MultipartResolver multipartResolver;
+
+//区域信息解析器，和国际化有关
+/** LocaleResolver used by this servlet. */
+@Nullable
+private LocaleResolver localeResolver;
+
+//主题解析器,主题效果更换
+/** ThemeResolver used by this servlet. */
+@Nullable
+private ThemeResolver themeResolver;
+
+//Handler映射信息
+/** List of HandlerMappings used by this servlet. */
+@Nullable
+private List<HandlerMapping> handlerMappings;
+
+
+//Handler的适配器
+/** List of HandlerAdapters used by this servlet. */
+@Nullable
+private List<HandlerAdapter> handlerAdapters;
+
+//SpringMVC强大的异常解析功能：异常解析器
+/** List of HandlerExceptionResolvers used by this servlet. */
+@Nullable
+private List<HandlerExceptionResolver> handlerExceptionResolve
+    
+
+/** RequestToViewNameTranslator used by this servlet. */
+@Nullable
+private RequestToViewNameTranslator viewNameTranslator;
+
+//FlashMapManager:SpringMVC中运行重定向携带数据的功能
+/** FlashMapManager used by this servlet. */
+@Nullable
+private FlashMapManager flashMapManager;
+
+//视图解析器：
+/** List of ViewResolvers used by this servlet. */
+@Nullable
+private List<ViewResolver> viewResolvers;
+```
+
+
+
+DispatcherServlet中九大组件初始化
+
+```java
+protected void initStrategies(ApplicationContext context) {
+   initMultipartResolver(context);
+   initLocaleResolver(context);
+   initThemeResolver(context);
+   initHandlerMappings(context);
+   initHandlerAdapters(context);
+   initHandlerExceptionResolvers(context);
+   initRequestToViewNameTranslator(context);
+   initViewResolvers(context);
+   initFlashMapManager(context);
+}
+```
+
+
+
+可以在web.xml中修改DispatcherServlet的默认属性
+
+初始化HandlerMappings:
+
+```java
+private void initHandlerMappings(ApplicationContext context) {
+   this.handlerMappings = null;
+   if (this.detectAllHandlerMappings) {
+      // Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
+      Map<String, HandlerMapping> matchingBeans =
+            BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
+      if (!matchingBeans.isEmpty()) {
+         this.handlerMappings = new ArrayList<>(matchingBeans.values());
+         // We keep HandlerMappings in sorted order.
+         AnnotationAwareOrderComparator.sort(this.handlerMappings);
+      }
+   }
+   else {
+      try {
+         HandlerMapping hm = context.getBean(HANDLER_MAPPING_BEAN_NAME, HandlerMapping.class);
+         this.handlerMappings = Collections.singletonList(hm);
+      }
+      catch (NoSuchBeanDefinitionException ex) {
+         // Ignore, we'll add a default HandlerMapping later.
+      }
+   }
+   // Ensure we have at least one HandlerMapping, by registering
+   // a default HandlerMapping if no other mappings are found.
+   if (this.handlerMappings == null) {
+      this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
+      if (logger.isTraceEnabled()) {
+         logger.trace("No HandlerMappings declared for servlet '" + getServletName() +
+               "': using default strategies from DispatcherServlet.properties");
+      }
+   }
+   for (HandlerMapping mapping : this.handlerMappings) {
+      if (mapping.usesPathPatterns()) {
+         this.parseRequestPath = true;
+         break;
+      }
+   }
+}
+```
+
+
+
+组件的初始化：
+
+有些组件在容器中是使用类型找的，有些组件是使用ID找的
+
+去容器中照这个组件，如果没有找到就用默认的配置；
+
+
+
+
+
+
+
+SpringMVC确定POJO值的三步：
+
+1. 如果隐含模型中有这个key（标了ModelAttribute注解就是注解指定的value，没标就是参数类型的首字母小写）指定的值
+
+   ​	如果有将这个值赋值给bindObject
+
+2. 如果是SessionAttributes标注的属性，就从session中拿
+3. 如果都不是就利用反射创建对象
+
+
+
+
+
+#### 2.3.7 视图解析
+
+**代码：viewResolver**
+
+
+
+##### forward前缀指定一个转发操作
+
+forward前缀的转发，不会由我们配置的视图解析器拼串==（请求转发）==
+
+```java
+@Controller
+public class HelloController {
+
+    @RequestMapping("/hello")
+    public ModelAndView hello() {
+        //相对路径
+        return new ModelAndView("../../hello");
+    }
+
+    /**
+     * forward:转发到一个页面
+     * /hello.jsp，当前项目下的hello
+     */
+    @RequestMapping("/handle01")
+    public ModelAndView handle1() {
+        System.out.println("handle01");
+        return new ModelAndView("forward:/hello.jsp");
+    }
+
+    @RequestMapping("/handle02")
+    public ModelAndView handle02(){
+        return new ModelAndView("forward:/handle01");
+    }
+}
+```
+
+
+
+##### redirect前缀指定重定向到页面
+
+```java
+/**
+ * 重定向到hello.jsp
+ * 有前缀的转发和重定向操作，配置的视图解析器就不会拼串
+ * <p>
+ * 转发 forward:转发的路径
+ * 重定向 redirect:重定向的路径
+ */
+@RequestMapping("/handle03")
+public String handle03() {
+    return "redirect:/hello.jsp";
+}
+/**
+ * 多次重定向
+ */
+@RequestMapping("/handle04")
+public String handle04() {
+    return "redirect:/handle03";
+}
+```
+
+
+
+
+
+##### 【源码】SpringMVC视图解析流程
+
+1. 略
+
+
+
+![image-20210811173937944](SSM.assets/image-20210811173937944.png)
+
+
+
+
+
+##### jstlView支持便捷的国际化功能
+
+可以支持快速国际化
+
+```jsp
+<!--配置一个视图解析器,能帮我们拼接页面地址-->
+<!--可以导入JSTL包;fmt:message-->
+<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    <property name="prefix" value="/WEB-INF/pages/"/>
+    <property name="suffix" value=".jsp"/>
+    <property name="viewClass" value="org.springframework.web.servlet.view.JstlView"/>
+</bean>
+```
+
+
+
++ 让SpringMVC管理国际化资源就行
++ 直接去页面使用<<fmt:message>>
+
+![image-20210811184840580](SSM.assets/image-20210811184840580.png)
+
+
+
+```xml
+<!--配置一个视图解析器,能帮我们拼接页面地址-->
+<!--可以导入JSTL包;fmt:message-->
+<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    <property name="prefix" value="/WEB-INF/pages/"/>
+    <property name="suffix" value=".jsp"/>
+    <property name="viewClass" value="org.springframework.web.servlet.view.JstlView"/>
+</bean>
+<!--SpringMVC管理国际化资源文件,配置一个资源文件管理器-->
+<bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+    <!--basename:指定基础名-->
+    <property name="basename" value="i18n_"/>
+</bean>
+```
+
+```jsp
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<html>
+<head>
+    <title>Title</title>
+</head>
+<body>
+
+<h1>
+    <fmt:message key="welcomeInfo"/>
+</h1>
+<form action="">
+    <fmt:message key="username"/> <input/> <br/>
+    <fmt:message key="password"/><input/><br/>
+    <input type="submit" value="<fmt:message key="loginBtn"/>"/>
+</form>
+```
+
+==国际化不能用forward前缀==
+
+
+
+##### view-controller:将请求映射到一个页面
+
+```xml
+<!--发送一个请求（"toLogin"），直接来到web-inf下的login页面；mvc名称空间下有一个请求映射标签-->
+<!--
+path=""：指定哪个请求
+view-name:指定映射给哪个视图
+走了SpringMVC整个流程：视图解析...
+其他的请求就不好使了
+-->
+<mvc:view-controller path="/toLogin" view-name="login"/>
+<!--开启mvc注解驱动模式;开启了mvc的开挂模式-->
+<mvc:annotation-driven/>
+```
+
+
+
+##### 自定义视图与视图解析器
+
++ 视图解析器根据方法的返回值得到视图对象
++ 多个视图解析器都会尝试得到视图对象
++ 视图对象不同就可以具有不同功能、
+
+
+
+1. 让我们的视图解析器工作
+2. 得到我们的视图对象
+3. 我们的视图对象自定义渲染逻辑
+
+
+
+自定义视图与视图解析器步骤：
+
+1. 编写自定义的视图解析器和视图实现类
+2. 视图解析器必须放在ioc容器中，让其工作，能创建出我们的自定义视图对象；
+
+```xml
+<!--自定义的视图解析器 order数字越小优先级越高
+InternalResourceViewResolver优先级是最低的
+-->
+<bean id="myPeopleViewResolver" class="com.kou.view.MyPeopleViewResolver">
+    <property name="order" value="1"/>
+</bean>
+```
+
+```java
+public class MyPeopleViewResolver implements ViewResolver, Ordered {
+    private Integer order = 0;
+    @Override
+    public int getOrder() {
+        return order;
+    }
+    public void setOrder(Integer order) {
+        this.order = order;
+    }
+    @Override
+    public View resolveViewName(String viewName, Locale locale) {
+        //根据视图名返回视图对象
+        if (viewName.startsWith("people:")) {
+            return new MyView();
+        } else {
+            //如果不能处理,返回null即可
+            return null;
+        }
+    }
+}
+```
+
+```java
+public class MyView implements View {
+    /**
+     * 返回的数据的内容类型
+     */
+    @Override
+    public String getContentType() {
+        return "text/html";
+    }
+    @Override
+    public void render(Map<String, ?> model, HttpServletRequest request, HttpServletResponse response) throws Exception {
+        response.setContentType("text/html;charset=UTF-8");
+        System.out.println("之前保存的数据" + model);
+        response.getWriter().write("哈哈<h1>即将展现精彩内容</h1>");
+    }
+}
+```
+
