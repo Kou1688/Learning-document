@@ -2049,6 +2049,71 @@ BeanFactory：bean工厂；工厂模式；帮用户创建bean
 </servlet-mapping>
 ```
 
+```xml
+<!--编码过滤器-->
+<filter>
+    <filter-name>characterEncodingFilter</filter-name>
+    <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+    <init-param>
+        <param-name>encoding</param-name>
+        <param-value>UTF-8</param-value>
+    </init-param>
+    <init-param>
+        <param-name>forceRequestEncoding</param-name>
+        <param-value>true</param-value>
+    </init-param>
+    <init-param>
+        <param-name>forceResponseEncoding</param-name>
+        <param-value>true</param-value>
+    </init-param>
+</filter>
+<filter-mapping>
+    <filter-name>characterEncodingFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+<!--支持Rest的filter-->
+<filter>
+    <filter-name>hiddenHttpMethodFilter</filter-name>
+    <filter-class>org.springframework.web.filter.HiddenHttpMethodFilter</filter-class>
+</filter>
+<filter-mapping>
+    <filter-name>hiddenHttpMethodFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+<servlet>
+    <servlet-name>dispatcherServlet</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <init-param>
+        <param-name>contextConfigLocation</param-name>
+        <param-value>classpath:springmvc.xml</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+</servlet>
+<servlet-mapping>
+    <servlet-name>dispatcherServlet</servlet-name>
+    <url-pattern>/</url-pattern>
+</servlet-mapping>
+```
+
+```xml
+<context:component-scan base-package="com.kou"/>
+<!--视图解析器,指定前后缀-->
+<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    <property name="prefix" value="/WEB-INF/pages/"/>
+    <property name="suffix" value=".jsp"/>
+</bean>
+<!--
+默认前端控制器拦截所有资源(除过jsp)，js就404了；要js文件的请求交给tomcat处理的
+http://localhost:8080/springmvc/js/jquery-3.2.1.js
+-->
+<!--告诉SpringMVC,自己映射的请求自己处理,不能处理的请求直接交给Tomcat-->
+<!--静态资源能访问了,动态映射又不行了-->
+<mvc:default-servlet-handler/>
+<!--springmvc可以保证动态请求和静态请求都能访问-->
+<mvc:annotation-driven/>
+
+```
+
 
 
 ### 2.3 Spring MVC HelloWorld
@@ -2360,6 +2425,22 @@ REST推荐：/资源名/资源标识符
 ##### 使用Rest构建一个增删改查系统
 
 代码：springmvc_rest
+
+
+
+```xml
+<!--支持Rest的filter-->
+<filter>
+    <filter-name>hiddenHttpMethodFilter</filter-name>
+    <filter-class>org.springframework.web.filter.HiddenHttpMethodFilter</filter-class>
+</filter>
+<filter-mapping>
+    <filter-name>hiddenHttpMethodFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+```
+
+
 
 ```java
 @Override
@@ -3257,7 +3338,7 @@ public String handle04() {
 
 
 
-##### view-controller:将请求映射到一个页面
+##### ==view-controller:将请求映射到一个页面==
 
 ```xml
 <!--发送一个请求（"toLogin"），直接来到web-inf下的login页面；mvc名称空间下有一个请求映射标签-->
@@ -3342,4 +3423,694 @@ public class MyView implements View {
     }
 }
 ```
+
+
+
+
+
+
+
+### 2.3 Restful CRUD
+
+**代码：crud**
+
+
+
+C：Create：创建
+
+R：Retrieve：查询
+
+U：Update：修改
+
+D：Delete：删除
+
+
+
+#### 员工列表展示
+
+增删改查的URL地址：/资源名/资源标识
+
+/emp/1	GET：查询id为1的员工
+
+/emp/1	POST：更新id为1的员工
+
+/emp/1	DELETE：删除id为1的员工
+
+/emp	    POST：新增员工
+
+/emps	  GET：查询所有员工
+
+
+
+员工列表展示，查询所有员工
+
+访问index.jsp----直接发送/emps请求，来到控制器查出所有员工----放在请求域中------转发到list页面
+
+
+
+
+
+#### 员工添加
+
+在list页面点击"员工添加"------（查询出所有的部门信息展示在添加界面）-------------来到添加页面(add.jsp)------输入员工数据--------点击保存(/emp)--------处理器收到员工保存请求（保存员工）-----保存完成后来到列表页面
+
+
+
+#### 表单标签完成添加页面
+
+```jsp
+<%--表单标签--%>
+<form:form action="">
+    LastName:<form:input path="lastName"/><br/>
+    email:<form:input path="email"/><br/>
+    gender:
+    男:<form:radiobutton path="gender" value="1"/><br/>
+    女:<form:radiobutton path="gender" value="0"/><br/>
+    dept:
+    <%--
+    items=""指定要便利的集合;
+    itemLabel=""指定遍历出的这个对象的哪个属性是作为option标签体的值
+    itemValue=""指定刚才遍历出来的这个对象的哪个属性是作为提交的value值
+    --%>
+    <form:select path="department.id"
+                 items="${depts}" itemLabel="lastName" itemValue="id">
+    </form:select><br/>
+    <input type="submit" value="保存"/>
+</form:form>
+```
+
+用了表单标签的页面可能会报这个错误
+
+```elm
+Neither BindingResult nor plain target object for bean name 'command' available as request attribute
+```
+
+请求域中没有一个command对象
+
+SpringMVC认为表单数据中的每一项最终都要回显的，
+
+path指定的是一个属性，这个属性是从隐含模型（请求域中取出的某个对象中的属性）
+
+path指定的每一个属性，请求域中必须有一个对象，拥有这个属性
+
+这个对象就是请求域中的command
+
+
+
+==看代码==
+
+
+
+
+
+#### 静态资源引入问题
+
+```xml
+<!--
+默认前端控制器拦截所有资源(除过jsp)，js就404了；要js文件的请求交给tomcat处理的
+http://localhost:8080/springmvc/js/jquery-3.2.1.js
+-->
+<!--告诉SpringMVC,自己映射的请求自己处理,不能处理的请求直接交给Tomcat-->
+<!--静态资源能访问了,动态映射又不行了-->
+<mvc:default-servlet-handler/>
+<!--springmvc可以保证动态请求和静态请求都能访问-->
+<mvc:annotation-driven/>
+```
+
+
+
+### 2.4 数据转换&数据格式化&数据校验
+
+**代码：dataBinder**
+
+
+
+#### 自定义类型转换
+
+1. 步骤
+
+   ConversionService：是一个接口
+
+   ​	里面由Converter（转换器）进行工作
+
+   + 实现Converter接口，写一个自定义的类型转换器
+   + Converter是ConversionService中的组件；
+   + 你的Converter得放进ConversionService中；
+   + 将WebDataBinder中的ConversionService设置成我们这个加了自定义类型转换器的ConversionService
+
+配置ConversionService
+
+```xml
+<!--使用我们自己的类型转换组件-->
+<mvc:annotation-driven conversion-service="conversionService2"/>
+<!--
+告诉SpringMVC别用默认的ConversionService,而用我自定义的ConversionService
+这个ConversionService中可能有我们自定义的Converter
+-->
+<bean id="conversionService2" class="org.springframework.format.support.FormattingConversionServiceFactoryBean">
+    <!--converters转换其中添加我们自定义的类型转换器-->
+    <property name="converters">
+        <set>
+            <bean class="com.kou.component.MyStringToEmployee"/>
+        </set>
+    </property>
+</bean>
+```
+
+
+
+总结三步：
+
+1. 实现Converter接口，做一个自定义类型的转换器
+2. 将这个Converter配置在ConversionService中
+3. 告诉SpringMVC使用这个ConversionService
+
+
+
+
+
+#### mvc:annotation-driven
+
+只要请求不好使就召唤
+
+```xml
+<mvc:annotation-driven />
+```
+
+```xml
+<mvc:default-servlet-handler/>
+```
+
++ 都没配的情况下？（@RequestMapping映射的资源能访问，静态资源（.html.css.js.....）不能访问）
++ `<mvc:default-servlet-handler/>`加上后，静态资源ok，动态资源完蛋
++ `<mvc:annotation-driven />`两个都加上后，静态动态资源都能访问
+
+
+
+#### 格式化
+
+页面提交的数据格式如果不正确，就是400
+
+日期格式：2021-8-18
+
+```java
+@DateTimeFormat(pattern = "yyyy-MM-dd")
+private Date birth;
+```
+
+```xml
+<!--
+以后写自定义类型转换器时就使用FormattingConversionServiceFactoryBean来注册
+既具有类型转换还有格式化功能
+-->
+<bean id="conversionService2" class="org.springframework.format.support.FormattingConversionServiceFactoryBean">
+    <!--converters转换其中添加我们自定义的类型转换器-->
+    <property name="converters">
+        <set>
+            <bean class="com.kou.component.MyStringToEmployee"/>
+        </set>
+    </property>
+</bean>
+```
+
+
+
+#### 数据校验
+
+只做前端校验是不安全的
+
+在重要数据一定要加上后端验证
+
+
+
+SpringMVC可以使用==JSR303==来做数据校验
+
+
+
++ 导入校验框架的jar包
+
+  ```xml
+  <!--数据校验-->
+  <!--此包导6.0b-->
+  <dependency>
+      <groupId>org.hibernate</groupId>
+      <artifactId>hibernate-validator</artifactId>
+      <version>6.0.17.Final</version>
+  </dependency>
+  ```
+
++ 给JavaBean加上校验注解
+
+```java
+@NotEmpty
+@Email
+@Past:必须是一个过去的事件
+@Future:必须是一个未来的时间
+@Length(min = 6,max = 18)
+```
+
+![image-20210818182922829](SSM.assets/image-20210818182922829.png)
+
++ 在SpringMVC封装对象的时候告诉SpringMVC这个JavaBean需要校验
+
+```java
+@Valid
+```
+
+![image-20210818183101027](SSM.assets/image-20210818183101027.png)
+
++ 如何知道校验结果
+
+  给需要校验的JavaBean后面紧跟一个BindingResult。这个BindingResult就是封装了前一个bean的校验结果。
+
++ 根据不同的校验结果决定怎么办
+
+
+
+#### 国际化
+
+每一个字段发生错误后，都会有自己的错误代码；国际化文件中的错误消息的key，必须对应一个错误代码
+
+codes [
+
+​			Email.employee.email,  校验规则.隐含模型中这个对象的key.对象的属性
+
+​			Email.email,
+
+​			Email.java.lang.String,校验规则.属性类型
+
+​			Email
+
+​			]; 
+
++ 如果是隐含模型中employee对象的email字段发生了@Email校验错误就会生成Email.employee.email
+
++ Email.email：所有的email属性只要发生了@Email错误
++ Email.java.lang.String：只要是String类型发生了@Email错误
++ Email：只要发生了@Email校验错误
+
+
+
+1. 先编写国际化配置文件
+
+   ![image-20210819135434174](SSM.assets/image-20210819135434174.png)
+
+2. 让SpringMVC管理国际化资源文件
+
+   ```xml
+   <!--管理国际化资源文件-->
+   <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+       <property name="basename" value="errors"/>
+   </bean>
+   ```
+
+3. 来到页面取值
+
+4. 高级国际化？
+
+   动态传入消息参数
+
+```properties
+Length.java.lang.String=长度错误! {0} {1} {2} ~~
+```
+
+![image-20210819141748363](SSM.assets/image-20210819141748363.png)
+
+
+
+#### message指定错误消息
+
+![image-20210819142050896](SSM.assets/image-20210819142050896.png)
+
+
+
+
+
+### 2.5 SpringMVC AJAX
+
+
+
+#### SpringMVC支持AJAX
+
+1. SpringMVC快速完成AJAX功能？
+   1. 返回数据是json就ok
+   2. 页面$.ajax();
+
+
+
+2. 原生Javaweb
+
+   + 导入GSON
+
+   + 返回数据用GSON转成json
+
+   + 写出去
+
+3. SpringMVC-ajax：
+
+   1. 导包
+
+   ```xml
+   <!--jackson ajax-->
+   <dependency>
+       <groupId>com.fasterxml.jackson.core</groupId>
+       <artifactId>jackson-databind</artifactId>
+       <version>2.12.4</version>
+   </dependency>
+   <dependency>
+       <groupId>com.fasterxml.jackson.core</groupId>
+       <artifactId>jackson-core</artifactId>
+       <version>2.12.4</version>
+   </dependency>
+   <dependency>
+       <groupId>com.fasterxml.jackson.core</groupId>
+       <artifactId>jackson-annotations</artifactId>
+       <version>2.12.4</version>
+   </dependency>
+   ```
+
+   1. 写配置
+   2. 测试
+
+```java
+/**
+ * -@ResponseBody 将返回的数据放在响应体中
+ * 如果是对象，Jackson自动将对象转为json格式
+ */
+@ResponseBody
+@RequestMapping("/getAllAjax")
+public Collection<Employee> ajaxGetAll(){
+    return employeeDao.getAll();
+}
+```
+
+![image-20210819145513065](SSM.assets/image-20210819145513065.png)
+
+![image-20210819145523237](SSM.assets/image-20210819145523237.png)
+
+
+
+#### 获取所有员工
+
+```jsp
+<a href="${ctp}/getAllAjax">ajax获取所有员工</a><br/>
+
+<div>
+
+</div>
+
+<script type="text/javascript">
+
+    $("a:first").click(function () {
+
+        //1.发送ajax获取所有员工
+        $.ajax({
+            url: "${ctp}/getAllAjax",
+            type: "GET",
+            success: function (data) {
+                //console.log(data);
+                $.each(data,function (){
+                    let empInfo = this.lastName + "-->" + this.birth + "-->" + this.gender;
+
+                    $("div").append(empInfo+"<br/>");
+                });
+            }
+        });
+
+        return false;
+    })
+
+</script>
+```
+
+
+
+
+
+#### 发送json数据给服务器
+
+```html
+<a href="${ctp}/testRequestBody">ajax发送json数据</a>
+
+</body>
+
+<script type="text/javascript">
+    $("a:first").click(function () {
+        const emp = {
+            lastName: "张三",
+            email: "aaa@aa.com",
+            gender: 0
+        };
+
+        //alert(typeof emp)
+        //js对象
+        const empStr = JSON.stringify(emp);
+        //alert(typeof empStr)
+
+        $.ajax({
+            url: '${ctp}/testRequestBody',
+            type: "POST",
+            data: empStr,
+            contentType: "application/json",
+            success: function (data) {
+                alert(data);
+            }
+        })
+        return false;
+    })
+</script>
+```
+
+```java
+@RequestMapping("/testRequestBody")
+public String testRequestBody(@RequestBody String body) {
+    System.out.println("请求体:" + body);
+    return "success";
+}
+```
+
+
+
+
+
+#### HttpEntity可以获取到请求头
+
+```java
+@RequestMapping("/test02")
+public String test02(HttpEntity<String> str) {
+    System.out.println("请求体:" + str);
+    return "success";
+}
+```
+
+请求体:<username=tomcat&password=123456,[host:"localhost:8080", connection:"keep-alive", content-length:"31", cache-control:"max-age=0", sec-ch-ua:""Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"", sec-ch-ua-mobile:"?0", upgr..................................
+
+
+
+#### ResponseEntity定制响应头
+
+```java
+/**
+ * ResponseEntity<String> 响应体中内容的类型
+ */
+@RequestMapping("/haha")
+public ResponseEntity<String> haha() {
+    String body = "<h1>success</h1>";
+    MultiValueMap<String, String> headers = new HttpHeaders();
+    
+    headers.add("Set-Cookie", "username=hahhaha");
+    return new ResponseEntity<String>(body, headers, HttpStatus.OK);
+}
+```
+
+
+
+
+
+### 2.6 文件上传
+
+**代码：upload**
+
+```xml
+<!--文件上传-->
+<!-- https://mvnrepository.com/artifact/commons-fileupload/commons-fileupload -->
+<dependency>
+    <groupId>commons-fileupload</groupId>
+    <artifactId>commons-fileupload</artifactId>
+    <version>1.4</version>
+</dependency>
+<!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
+<dependency>
+    <groupId>commons-io</groupId>
+    <artifactId>commons-io</artifactId>
+    <version>2.11.0</version>
+</dependency>
+```
+
+
+
+```jsp
+<%--
+1.文件上传
+    1.文件上传表单准备:enctype="multipart/form-data"
+    2.导入fileupload;
+    3.只要在SpringMVC配置文件中，辨析一个配置，配置文件上传解析器(MultipartResolver);
+    4.文件上传请求处理
+        在请求方法上写一个@RequestParam("headerImg") MultipartFile file,
+--%>
+
+<form action="${ctp}/upload" method="post" enctype="multipart/form-data">
+    用户头像:<input name="headerImg" type="file"/><br/>
+    用户名:<input type="text" name="username"/><br/>
+    <input type="submit" value="提交"/>
+</form>
+```
+
+```xml
+<!--配置文件上传解析器  id必须是multipartResolver-->
+<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+    <property name="maxUploadSize" value="#{1024*1024*20}"/>
+    <!--默认编码-->
+    <property name="defaultEncoding" value="UTF-8"/>
+</bean>
+```
+
+```java
+@RequestMapping("/upload")
+public String upload(@RequestParam(value = "username", required = false) String username,
+                     //MultipartFile封装上传的文件
+                     @RequestParam("headerImg") MultipartFile file,
+                     Model model) {
+    System.out.println("上传的文件信息");
+    System.out.println("文件的名字"+file.getName());
+    System.out.println("文件的名字"+file.getOriginalFilename());
+    //文件保存
+    try {
+        file.transferTo(new File("C:\\Users\\Kou\\Desktop\\haha\\"+file.getOriginalFilename()));
+        model.addAttribute("msg", "文件上传成功");
+    } catch (Exception e) {
+        model.addAttribute("msg", "文件上传失败"+e.getMessage());
+    }
+    return "forward:/index.jsp";
+}
+```
+
+
+
+#### 多文件上传
+
+```java
+/**
+ * 测试多文件上传
+ */
+@RequestMapping("/upload")
+public String upload(@RequestParam(value = "username", required = false) String username,
+                     //MultipartFile封装上传的文件
+                     @RequestParam("headerImg") MultipartFile[] file,
+                     Model model) {
+    System.out.println("上传的文件信息");
+    for (MultipartFile multipartFile:file){
+        if (!multipartFile.isEmpty()){
+            //文件保存
+            try {
+                multipartFile.transferTo(new File("C:\\Users\\Kou\\Desktop\\haha\\"+multipartFile.getOriginalFilename()));
+                model.addAttribute("msg", "文件上传成功");
+            } catch (Exception e) {
+                model.addAttribute("msg", "文件上传失败"+e.getMessage());
+            }
+        }
+    }
+    return "forward:/index.jsp";
+}
+```
+
+
+
+
+
+### 2.7 拦截器
+
+**代码：springmvc_interceptor**
+
+
+
+SpringMVC提供了拦截器机制；允许运行目标方法之前进行一些拦截工作，或者目标方法运行之后进行一些其他处理；
+
+Filter：JavaWeb
+
+HandlerInterceptor：SpringMVC
+
+![image-20210820171534051](SSM.assets/image-20210820171534051.png)
+
+preHandle：在目标方法运行之前调用；返回布尔值，return true。处理链放行。false不放行
+
+postHandle：在目标方法运行之后调用；目标方法调用之后
+
+afterCompletion：在请求整个完成之后；来到目标页面之后；资源响应之后
+
+
+
++ 拦截器是一个接口
+
++ 实现HandlerInterceptor接口
+
++ 配置拦截器
+
+  ```xml
+  <!--测试拦截器-->
+  <mvc:interceptors>
+      <!--配置某个拦截器;默认拦截所有请求-->
+     <!--<bean class="com.kou.controller.MyFirstInterceptor"/>-->
+      <!--配置某个拦截器更详细的信息-->
+      <mvc:interceptor>
+          <!--只拦截test01请求-->
+          <mvc:mapping path="/test01"/>
+          <bean class="com.kou.controller.MyFirstInterceptor"/>
+      </mvc:interceptor>
+  </mvc:interceptors>
+  ```
+
++ 拦截器的执行流程
+
+  preHandle---目标方法-----拦截器postHandle-----页面-----afterCompletion
+
++ 其他流程：
+
+  preHandle不放行的话就没有下面的流程
+
+异常流程：
+
+哪一块不放行从此都没有
+
+second不放行；但前面已经放行了的拦截器的afterCompletion总会执行；
+
+流程：filter的流程
+
+拦截器的preHandle：按照顺序执行
+
+拦截器的postHandle：按照逆序执行
+
+拦截器的afterCompletion：按照逆序执行
+
+
+
+
+
+### 2.8 国际化
+
+1. 写好国际化资源文件
+
+   ![image-20210820212757316](SSM.assets/image-20210820212757316.png)
+
+2. 让Spring的ResourceBundelMessageSource管理国际化资源文件
+
+   ```xml
+   <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+       <property name="basename" value="login"/>
+   </bean>
+   ```
+
+3. 直接去页面取值
+
+   ![image-20210820212847779](SSM.assets/image-20210820212847779.png)
 
