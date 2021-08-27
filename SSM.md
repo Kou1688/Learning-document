@@ -4114,3 +4114,1015 @@ second不放行；但前面已经放行了的拦截器的afterCompletion总会�
 
    ![image-20210820212847779](SSM.assets/image-20210820212847779.png)
 
+
+
+
+
+
+
++ SpringMVC中区域信息是由区域信息解析器得到的
+
+  ```java
+  private LocaleResolver localeResolver;
+  ```
+
+
+
+#### 在程序中获取国际化信息
+
+```java
+@Autowired
+private MessageSource messageSource;
+@RequestMapping("/toLoginPage")
+public String toLoginPage(Locale locale) {
+    System.out.println(locale);
+    String welcomeinfo = messageSource.getMessage("welcomeinfo", null, locale);
+    System.out.println(welcomeinfo);
+    return "login";
+}
+```
+
+
+
+#### 点击链接切换国际化
+
+```java
+public class MyLocaleResolver implements LocaleResolver {
+    /**
+     * 解析返回locale
+     */
+    @Override
+    public Locale resolveLocale(HttpServletRequest request) {
+        Locale locale = null;
+        String localeStr = request.getParameter("locale");
+        //如果带了locale参数就用参数指定的区域信息,如果没带就用请求头的
+        if (localeStr != null && !"".equals(localeStr)) {
+            locale = new Locale(localeStr.split("_")[0], localeStr.split("_")[1]);
+        } else {
+            locale = request.getLocale();
+        }
+        return locale;
+    }
+
+    /**
+     * 修改locale
+     */
+    @Override
+    public void setLocale(HttpServletRequest request, HttpServletResponse response, Locale locale) {
+
+    }
+}
+```
+
+```jsp
+<%--如果点击链接切换国际化--%>
+<a href="toLoginPage?locale=zh_CN">中文</a><br/>
+<a href="toLoginPage?locale=en_US">English</a><br/>
+```
+
+
+
+
+
+
+
+#### 使用Session实现点击链接国际化
+
+```java
+@Autowired
+private MessageSource messageSource;
+@RequestMapping("/toLoginPage")
+public String toLoginPage(@RequestParam(value = "locale", defaultValue = "zh_CN") String localeStr, Locale locale, HttpSession session) {
+    System.out.println(locale);
+    String welcomeinfo = messageSource.getMessage("welcomeinfo", null, locale);
+    System.out.println(welcomeinfo);
+    Locale l;
+    //如果带了locale参数就用参数指定的区域信息,如果没带就用请求头的
+    if (localeStr != null && !"".equals(localeStr)) {
+        l = new Locale(localeStr.split("_")[0], localeStr.split("_")[1]);
+    } else {
+        l = locale;
+    }
+    session.setAttribute(SessionLocaleResolver.class.getName() + ".LOCALE", l);
+    return "login";
+}
+```
+
+```xml
+<bean id="localeResolver" class="org.springframework.web.servlet.i18n.SessionLocaleResolver"/>
+```
+
+
+
+
+
+#### 拦截器实现国际化
+
+```xml
+<!--从session中拿区域信息-->
+<bean id="localeResolver" class="org.springframework.web.servlet.i18n.SessionLocaleResolver"/>
+
+<!--拦截器是实现国际化-->
+<mvc:interceptors>
+    <bean class="org.springframework.web.servlet.i18n.LocaleChangeInterceptor"/>
+</mvc:interceptors>
+```
+
+
+
+什么时候用filter什么时候用拦截器？
+
+拦截器比较强大，前后都能运行。
+
+
+
+
+
+
+
+### 2.9 异常处理
+
+
+
+SpringMVC通过如下的异常处理解析器处理异常
+
+![image-20210823153816132](SSM.assets/image-20210823153816132.png)
+
+
+
+#### @ExceptionHandler
+
+```java
+@RequestMapping("/handle01")
+public String handle01(@RequestParam("i") Integer i) {
+    System.out.println("handle01.........");
+    System.out.println(10 / i);
+    return "success";
+}
+/**
+ * 告诉SpringMVC这个方法专门处理这个类发生的异常
+ * 1.给方法上随便写一个Exception接收发生的异常
+ * 2.要携带异常信息，不能给参数位置写Model
+ * 3.返回ModelAndView
+ */
+@ExceptionHandler(value = {ArithmeticException.class})
+public ModelAndView handleException01(Exception exception) {
+    System.out.println("handleException01....");
+    ModelAndView view = new ModelAndView("myError");
+    view.addObject("ex", exception);
+    //视图解析器拼串
+    //return "myError";
+    return view;
+}
+```
+
+
+
+
+
+```java
+@ControllerAdvice		//表示是专门处理异常的类
+```
+
+异常处理本类优先，全局处理其次
+
+
+
+定义异常状态
+
+```java
+@ResponseStatus(reason = "用户被拒绝登录",value = HttpStatus.NOT_ACCEPTABLE)@ResponseStatus(reason = "用户被拒绝登录",value = HttpStatus.NOT_ACCEPTABLE)
+public class UsernameNotFoundException extends RuntimeException {
+    public static final long serialVersionUID = 1L;
+
+}
+
+
+
+
+
+
+
+@RequestMapping("/handle02")
+    public String handle02(@RequestParam(value = "username") String username) {
+        if ("admin".equals(username)) {
+            System.out.println("登陆失败");
+            throw new UsernameNotFoundException();
+        } else {
+            System.out.println("登录成功");
+        }
+        return "success";
+    }
+```
+
+
+
+
+
+### 2.10 SpringMVC运行流程
+
+![image-20210823171214113](SSM.assets/image-20210823171214113.png)
+
+1. ==所有请求，前端控制器DispatcherServlet收到请求，调用doDispatch进行处理==
+
+2. ==根据HandlerMapping中保存的请求映射信息，找到处理当前请求的，处理器执行链（包含拦截器）==
+
+3. ==根据当前处理器找到它的HandlerAdapter（适配器）==
+
+4. ==拦截器preHandler先执行==
+
+5. ==适配器执行目标方法，并返回ModelAndView==
+
+   1. ModelAttribute注解标注的方法提前运行
+
+   2. 执行目标方法的时候（确定目标方法用的参数）
+
+      1. 有注解
+
+      2. 没注解：
+
+         1. 看是否model ，map以及其他的
+
+         2. 如果是自定义类型
+            	1. 从隐含模型中看有没有，如果有就从隐含模型中拿
+             	2. 如果没有，再看SessionAttribute标注的属性，如果是从Session中拿，如果拿不到就会抛异常
+             	3. 都不是，就利用反射来创建对象
+
+ 6. ==拦截器的postHandler执行==
+
+ 7. ==渲染页面，处理结果。==
+
+     1. ==如果有异常，使用异常解析其处理异常。处理完后还会返回ModelAndView==
+     2. ==调用render进行页面渲染==
+         1. 视图解析器根据视图名得到视图对象
+         2. 视图对象调用视图方法
+     3. ==执行拦截器afterCompletion==
+
+
+
+
+
+### 2.11 SpringMVC Spring整合
+
+整合的目的：分工明确。
+
+SpringMVC的配置文件就来配置和网站转发逻辑以及网站功能有关的（视图解析器，文件上传解析器，支持ajax）
+
+Spring配置文件来配置和业务有关的（事务控制，数据源，xxxx）
+
+
+
+```xml
+<import resource=""/>
+```
+
+
+
+---------------------
+
+SpringMVC和Spring分容器
+
+web.xml添加spring的配置
+
+```xml
+<context-param>
+	<param-name>config</param-name>
+    <param-value>classpath:spring.xml</param-value>
+</context-param>
+```
+
+
+
+Spring管理业务逻辑组件
+
+SpringMVC管理控制器
+
+==扫描包时各自扫自己的包==
+
+mvc:
+
+```xml
+<context:component-scan base-package="com.kou" use-default-filters="false">
+    <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    <context:include-filter type="annotation" expression="org.springframework.web.bind.annotation.ControllerAdvice"/>
+</context:component-scan>
+```
+
+spring:
+
+```xml
+<context:component-scan base-package="com.kou">
+    <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    <context:exclude-filter type="annotation" expression="org.springframework.web.bind.annotation.ControllerAdvice"/>
+</context:component-scan>
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 3.Mybatis
+
+
+
+和数据库进行交互；**持久化层框架**（SQL映射框架）
+
++ 从原始的JDBC----dbutils-----JdbcTemplete-------xxxx
+
+  称为工具：功能的简单封装
+
+框架：某个领域的整体解决方案；
+
+
+
++ Mybatis将重要步骤抽取出来人工定制，其他步骤自动化
+
+- 重要步骤都是写在配置文件中（好维护）
+
+- 完全解决数据库的优化问题
+
+- MyBatis就是对原生JDBC的一个简单封装
+- 既将Java编码与sql抽取了出来，还不会失去自动化功能；半自动的持久化层框架
+
+
+
+
+
+### 3.1 HelloWorld
+
+#### 环境搭建
+
+1. 创建一个Java工程
+2. 创建测试类，测试表，以及封装数据的JavaBean，和操作数据库的dao接口
+3. 创建表
+
+
+
+
+
+```xml
+<build>
+    <!--告诉maven打包要包括java目录下的.xml文件-->
+    <resources>
+        <resource>
+            <directory>src/main/java</directory>
+            <includes>
+                <include>**/*.xml</include>
+            </includes>
+            <filtering>false</filtering>
+        </resource>
+    </resources>
+</build>
+```
+
+
+
++ 导包
+
+```xml
+<!--MyBatis-->
+<dependency>
+    <groupId>org.mybatis</groupId>
+    <artifactId>mybatis</artifactId>
+    <version>3.5.7</version>
+</dependency>
+<!--数据库驱动-->
+<dependency>
+    <groupId>mysql</groupId>
+    <artifactId>mysql-connector-java</artifactId>
+    <version>8.0.26</version>
+</dependency>
+<!--日志包-->
+<!--依赖类路径下一个log4j.xml配置文件-->
+<dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-core</artifactId>
+    <version>2.14.1</version>
+</dependency>
+```
+
+
+
+
+
++ 写配置（两个）
+  1. 第一个配置文件（mybatis的全局配置文件，直到mybatis如何正确运行比如连接向哪个数据库）
+
+![image-20210824164105206](SSM.assets/image-20210824164105206.png)
+
+​	2. 第二个配置文件（编写每一个方法都如何向数据库发送sql）
+
+​		Mapper文件
+
+​		
+
+mapper的namespace属性是对应接口的全类名
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+namespace:名称空间:写对应接口的全类名
+相当于告诉mybatis这个文件是实现哪个接口的
+-->
+<mapper namespace="com.kou.dao.EmployeeDao">
+
+
+    <!--
+    用来定义一个查询操作
+    id:方法名，相当于这个配置时对于某个方法的实现
+    resultType:用来指定方法运行后的返回值类型;(查询操作必须是指定的)
+    #{属性名}:取出对象方法传过来的参数
+    -->
+    <select id="getEmpById" resultType="com.kou.entity.Employee">
+        select * from t_employee
+        where id=#{id}
+    </select>
+</mapper>
+```
+
+
+
+**我们写的dao接口的实现文件，mybatis默认是不知道的，需要在全局配置文件中注册**
+
+```xml
+<!--引入我们自己编写的每一个接口的实现文件-->
+<mappers>
+    <!--映射文件引用-->
+    <!-- class方式加载配置文件:class指定的是 mapper接口的地址
+    但是这时候就需要将接口类 和映射文件放在同一个包下
+    并且需要在pom.xml文件下配置可以识别Java目录下xml文件的resources-->
+    <mapper class="com.kou.dao.EmployeeDao"/>
+</mappers>
+```
+
+
+
+
+
+
+
++ 测试：
+
+  **构建SqlSessionFactory** 
+  
+  每个基于 MyBatis 的应用都是以一个 SqlSessionFactory 的实例为核心的。
+  
+  ```java
+  public class MyBatisSqlSessionConfig {
+      public static void main(String[] args) throws IOException {
+          //1.根据全局配置文件创建一个SqlSessionFactory
+          //SqlSessionFactory:是SqlSession工厂,负责创建SqlSession对象
+          //SqlSession:sql会话(代表和数据库的一次会话);
+          String resource = "mybatis-config.xml";
+          InputStream inputStream = Resources.getResourceAsStream(resource);
+          SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
+  
+          //2.获取和数据库的一次会话
+          SqlSession openSession = sqlSessionFactory.openSession();
+          //3.使用sqlSession操作数据库,获取到dao接口的实现
+          EmployeeDao employeeDao = openSession.getMapper(EmployeeDao.class);
+          //4.调用之前的方法
+          Employee employee = employeeDao.getEmpById(1);
+          System.out.println(employee);
+      }
+  }
+  ```
+
+
+
+#### 关于xml文件的dtd约束
+
+如何写xml有提示
+
+1. 只要IDE找到了约束文件dtd的位置
+
+```xml
+"http://mybatis.org/dtd/mybatis-3-config.dtd"
+```
+
+
+
+
+
+#### HelloWorldPlus
+
+```xml
+<mapper namespace="com.kou.dao.EmployeeDao">
+
+    <!--查询操作-->
+    <select id="getEmpById" resultType="com.kou.entity.Employee">
+        /*sql语句不要写分号*/
+        select *
+        from t_employee
+        where id = #{id}
+    </select>
+
+    <!--
+    更新方法
+    增删改不用写返回值类型resultType
+    增删改是返回影响多少行
+    mybatis自动判断,如果是数字(int,long)
+    如果是Boolean(影响零行false,否则true)
+    -->
+    <update id="updateEmployee">
+        UPDATE t_employee
+        SET empname =#{empName},
+            gender  =#{gender},
+            email   =#{email}
+        WHERE id = #{id}
+    </update>
+
+    <!--删除-->
+    <delete id="deleteEmployee">
+        DELETE
+        from t_employee
+        where id = #{id}
+    </delete>
+
+    <!--插入操作-->
+    <insert id="insertEmployee">
+        INSERT INTO t_employee(empname, gender, email)
+        VALUES (#{empName}, #{gender}, #{email})
+    </insert>
+</mapper>
+```
+
+```java
+public class MybatisCrudTest {
+    SqlSessionFactory sqlSessionFactory;
+
+    @Before
+    public void initSqlSessionFactory() throws IOException {
+        //1.根据全局配置文件得到sqlSessionFactory对象
+        String resource = "mybatis-config.xml";
+        InputStream inputStream = Resources.getResourceAsStream(resource);
+        sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
+    }
+
+    @Test
+    public void test01() throws IOException {
+
+        initSqlSessionFactory();
+        //2.得到sqlSession对象
+        SqlSession openSession = sqlSessionFactory.openSession();
+
+        //3.获取到dao接口的实现
+        EmployeeDao dao = openSession.getMapper(EmployeeDao.class);
+        try {
+            Employee employee = dao.getEmpById(1);
+            System.out.println(employee);
+        } finally {
+            openSession.close();
+        }
+    }
+
+    @Test
+    public void insertTest() {
+        //获取和数据库的一次会话   true:自动提交
+        SqlSession openSession = sqlSessionFactory.openSession(true);
+        //获取到接口的映射器
+        EmployeeDao mapper = openSession.getMapper(EmployeeDao.class);
+        try {
+            int i = mapper.insertEmployee(new Employee(null, "Kou1", "Kou1@qq.com", 1));
+            System.out.println(i);
+        } finally {
+            //增删改需要手动提交 或者去自动提交
+            //openSession.commit();
+            openSession.close();
+        }
+    }
+}
+```
+
+
+
+
+
+### 3.2 全局配置文件
+
+
+
+#### properties--引入外部配置文件
+
+全局配置文件：mabatis-config.xml；指导mybatis正确运行的一些全局配置
+
+SQL配置文件：相当于对Dao接口的一个实现描述
+
+
+
+**细节**：
+
+获取到的是接口的代理对象；mybatis自动创建的
+
+SqlSessionFactory和SqlSession；
+
+SqlSessionFactory创建Sqlsession对象，Factory只new一次就行
+
+SqlSession：相当于connection和数据进行交互的，和数据库的一次会话，就应该创建一个新的sqlSession
+
+
+
+
+
+**代码：mabatis-config**
+
+```xml
+<!--
+1.引入外部配置文件
+url:可以引用磁盘路径或网络路径
+resource:类路径下开始引用
+-->
+<properties resource="dbconfig.properties"/>
+<environments default="development">
+    <environment id="development">
+        <transactionManager type="JDBC"/>
+        <!--配置连接池-->
+        <dataSource type="POOLED">
+            <!--${取出配置文件中的值}-->
+            <property name="driver" value="${driverclass}"/>
+            <property name="url" value="${jdbcurl}"/>
+            <property name="username" value="${username}"/>
+            <property name="password" value="${password}"/>
+        </dataSource>
+    </environment>
+</environments>
+```
+
+
+
+
+
+#### settings----修改mybatis的运行时行为
+
+
+
+| 设置名                           | 描述                                                         | 有效值                                                       | 默认值                                                |
+| :------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :---------------------------------------------------- |
+| cacheEnabled                     | 全局性地开启或关闭所有映射器配置文件中已配置的任何缓存。     | true \| false                                                | true                                                  |
+| lazyLoadingEnabled               | 延迟加载的全局开关。当开启时，所有关联对象都会延迟加载。 特定关联关系中可通过设置 `fetchType` 属性来覆盖该项的开关状态。 | true \| false                                                | false                                                 |
+| aggressiveLazyLoading            | 开启时，任一方法的调用都会加载该对象的所有延迟加载属性。 否则，每个延迟加载属性会按需加载（参考 `lazyLoadTriggerMethods`)。 | true \| false                                                | false （在 3.4.1 及之前的版本中默认为 true）          |
+| multipleResultSetsEnabled        | 是否允许单个语句返回多结果集（需要数据库驱动支持）。         | true \| false                                                | true                                                  |
+| useColumnLabel                   | 使用列标签代替列名。实际表现依赖于数据库驱动，具体可参考数据库驱动的相关文档，或通过对比测试来观察。 | true \| false                                                | true                                                  |
+| useGeneratedKeys                 | 允许 JDBC 支持自动生成主键，需要数据库驱动支持。如果设置为 true，将强制使用自动生成主键。尽管一些数据库驱动不支持此特性，但仍可正常工作（如 Derby）。 | true \| false                                                | False                                                 |
+| autoMappingBehavior              | 指定 MyBatis 应如何自动映射列到字段或属性。 NONE 表示关闭自动映射；PARTIAL 只会自动映射没有定义嵌套结果映射的字段。 FULL 会自动映射任何复杂的结果集（无论是否嵌套）。 | NONE, PARTIAL, FULL                                          | PARTIAL                                               |
+| autoMappingUnknownColumnBehavior | 指定发现自动映射目标未知列（或未知属性类型）的行为。`NONE`: 不做任何反应`WARNING`: 输出警告日志（`'org.apache.ibatis.session.AutoMappingUnknownColumnBehavior'` 的日志等级必须设置为 `WARN`）`FAILING`: 映射失败 (抛出 `SqlSessionException`) | NONE, WARNING, FAILING                                       | NONE                                                  |
+| defaultExecutorType              | 配置默认的执行器。SIMPLE 就是普通的执行器；REUSE 执行器会重用预处理语句（PreparedStatement）； BATCH 执行器不仅重用语句还会执行批量更新。 | SIMPLE REUSE BATCH                                           | SIMPLE                                                |
+| defaultStatementTimeout          | 设置超时时间，它决定数据库驱动等待数据库响应的秒数。         | 任意正整数                                                   | 未设置 (null)                                         |
+| defaultFetchSize                 | 为驱动的结果集获取数量（fetchSize）设置一个建议值。此参数只可以在查询设置中被覆盖。 | 任意正整数                                                   | 未设置 (null)                                         |
+| defaultResultSetType             | 指定语句默认的滚动策略。（新增于 3.5.2）                     | FORWARD_ONLY \| SCROLL_SENSITIVE \| SCROLL_INSENSITIVE \| DEFAULT（等同于未设置） | 未设置 (null)                                         |
+| safeRowBoundsEnabled             | 是否允许在嵌套语句中使用分页（RowBounds）。如果允许使用则设置为 false。 | true \| false                                                | False                                                 |
+| safeResultHandlerEnabled         | 是否允许在嵌套语句中使用结果处理器（ResultHandler）。如果允许使用则设置为 false。 | true \| false                                                | True                                                  |
+| mapUnderscoreToCamelCase         | 是否开启驼峰命名自动映射，即从经典数据库列名 A_COLUMN 映射到经典 Java 属性名 aColumn。 | true \| false                                                | False                                                 |
+| localCacheScope                  | MyBatis 利用本地缓存机制（Local Cache）防止循环引用和加速重复的嵌套查询。 默认值为 SESSION，会缓存一个会话中执行的所有查询。 若设置值为 STATEMENT，本地缓存将仅用于执行语句，对相同 SqlSession 的不同查询将不会进行缓存。 | SESSION \| STATEMENT                                         | SESSION                                               |
+| jdbcTypeForNull                  | 当没有为参数指定特定的 JDBC 类型时，空值的默认 JDBC 类型。 某些数据库驱动需要指定列的 JDBC 类型，多数情况直接用一般类型即可，比如 NULL、VARCHAR 或 OTHER。 | JdbcType 常量，常用值：NULL、VARCHAR 或 OTHER。              | OTHER                                                 |
+| lazyLoadTriggerMethods           | 指定对象的哪些方法触发一次延迟加载。                         | 用逗号分隔的方法列表。                                       | equals,clone,hashCode,toString                        |
+| defaultScriptingLanguage         | 指定动态 SQL 生成使用的默认脚本语言。                        | 一个类型别名或全限定类名。                                   | org.apache.ibatis.scripting.xmltags.XMLLanguageDriver |
+| defaultEnumTypeHandler           | 指定 Enum 使用的默认 `TypeHandler` 。（新增于 3.4.5）        | 一个类型别名或全限定类名。                                   | org.apache.ibatis.type.EnumTypeHandler                |
+| callSettersOnNulls               | 指定当结果集中值为 null 的时候是否调用映射对象的 setter（map 对象时为 put）方法，这在依赖于 Map.keySet() 或 null 值进行初始化时比较有用。注意基本类型（int、boolean 等）是不能设置成 null 的。 | true \| false                                                | false                                                 |
+| returnInstanceForEmptyRow        | 当返回行的所有列都是空时，MyBatis默认返回 `null`。 当开启这个设置时，MyBatis会返回一个空实例。 请注意，它也适用于嵌套的结果集（如集合或关联）。（新增于 3.4.2） | true \| false                                                | false                                                 |
+| logPrefix                        | 指定 MyBatis 增加到日志名称的前缀。                          | 任何字符串                                                   | 未设置                                                |
+| logImpl                          | 指定 MyBatis 所用日志的具体实现，未指定时将自动查找。        | SLF4J \| LOG4J \| LOG4J2 \| JDK_LOGGING \| COMMONS_LOGGING \| STDOUT_LOGGING \| NO_LOGGING | 未设置                                                |
+| proxyFactory                     | 指定 Mybatis 创建可延迟加载对象所用到的代理工具。            | CGLIB \| JAVASSIST                                           | JAVASSIST （MyBatis 3.3 以上）                        |
+| vfsImpl                          | 指定 VFS 的实现                                              | 自定义 VFS 的实现的类全限定名，以逗号分隔。                  | 未设置                                                |
+| useActualParamName               | 允许使用方法签名中的名称作为语句参数名称。 为了使用该特性，你的项目必须采用 Java 8 编译，并且加上 `-parameters` 选项。（新增于 3.4.1） | true \| false                                                | true                                                  |
+| configurationFactory             | 指定一个提供 `Configuration` 实例的类。 这个被返回的 Configuration 实例用来加载被反序列化对象的延迟加载属性值。 这个类必须包含一个签名为`static Configuration getConfiguration()` 的方法。（新增于 3.2.3） | 一个类型别名或完全限定类名。                                 | 未设置                                                |
+| shrinkWhitespacesInSql           | 从SQL中删除多余的空格字符。请注意，这也会影响SQL中的文字字符串。 (新增于 3.5.5) | true \| false                                                | false                                                 |
+| defaultSqlProviderType           | Specifies an sql provider class that holds provider method (Since 3.5.6). This class apply to the `type`(or `value`) attribute on sql provider annotation(e.g. `@SelectProvider`), when these attribute was omitted. | A type alias or fully qualified class name                   | Not set                                               |
+
+```xml
+<!--这是 MyBatis 中极为重要的调整设置，它们会改变 MyBatis 的运行时行为-->
+<settings>
+    <!--name:配置项的key;value:配置项的值-->
+    <!--是否开启驼峰命名自动映射，即从经典数据库列名 A_COLUMN 映射到经典 Java 属性名 aColumn。-->
+    <setting name="mapUnderscoreToCamelCase" value="true"/>
+</settings>
+```
+
+
+
+
+
+#### typeAliases类型别名
+
+```xml
+<!--类型别名;为常用的类型JavaBean起别名-->
+<typeAliases>
+    <!--
+    typeAlias:就是为一个JavaBean起别名;别名默认就是类名（不区分大小写）
+    这样在配置文件中就不需要写全类名,只用写一个别名就行
+    -->
+    <!--<typeAlias type="com.kou.entity.Employee" alias="emp"/>-->
+    
+    <!--批量起别名name=""指定包名,默认别名就是类名-->
+    <package name="com.kou.entity"/>
+</typeAliases>
+```
+
+批量起别名时改默认名可以去指定类上加注解
+
+![image-20210826163317351](SSM.assets/image-20210826163317351.png)
+
+
+
+
+
+#### 类型处理器（typeHandlers）
+
+
+
+
+
+#### 插件（plugins）
+
+MyBatis 允许你在映射语句执行过程中的某一点进行拦截调用。默认情况下，MyBatis 允许使用插件来拦截的方法调用包括：
+
+- Executor (update, query, flushStatements, commit, rollback, getTransaction, close, isClosed)
+- ParameterHandler (getParameterObject, setParameters)
+- ResultSetHandler (handleResultSets, handleOutputParameters)
+- StatementHandler (prepare, parameterize, batch, update, query)
+
+这些类中方法的细节可以通过查看每个方法的签名来发现，或者直接查看 MyBatis 发行包中的源代码。 如果你想做的不仅仅是监控方法的调用，那么你最好相当了解要重写的方法的行为。 因为在试图修改或重写已有方法的行为时，很可能会破坏 MyBatis 的核心模块。 这些都是更底层的类和方法，所以使用插件的时候要特别当心。
+
+通过 MyBatis 提供的强大机制，使用插件是非常简单的，只需实现 Interceptor 接口，并指定想要拦截的方法签名即可。
+
+
+
+
+
+#### 环境配置（environments）
+
+
+
+#### 数据库厂商标识（databaseIdProvider）
+
+```xml
+<!--用来考虑数据库移植性-->
+<databaseIdProvider type="DB_VENDOR">
+    <!--name:数据库厂商别名,value:给这个标识起一个好用的名字-->
+    <property name="MySQL" value="mysql"/>
+    <property name="SQL Server" value="sqlserver"/>
+</databaseIdProvider>
+```
+
+![image-20210826173319312](SSM.assets/image-20210826173319312.png)
+
+
+
+
+
+#### 映射器（mappers）
+
+```xml
+<!--7.写好的sql映射文件需要使用mappers注册进来-->
+<mappers>
+    <!--class:直接引用接口全类名,需要映射文件和接口在同一个包里,并且文件名与接口一致-->
+    <!--<mapper class="com.kou.dao.EmployeeDao"/>-->
+    <!--简单的dao直接标注解-->
+    <!--resource:在类路径下找sql映射文件-->
+    <!--<mapper resource="com/kou/dao/EmployeeDao.xml"/>-->
+    <!--url:可以从磁盘或者网络路径引用-->
+    <!--批量扫描-->
+    <package name="com.kou.dao"/>
+</mappers>
+```
+
+
+
+
+
+
+
+
+
+全局配置：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!--
+    1.引入外部配置文件
+    url:可以引用磁盘路径或网络路径
+    resource:类路径下开始引用
+    -->
+    <properties resource="dbconfig.properties"/>
+
+    <!--这是 MyBatis 中极为重要的调整设置，它们会改变 MyBatis 的运行时行为-->
+    <settings>
+        <!--name:配置项的key;value:配置项的值-->
+        <!--是否开启驼峰命名自动映射，即从经典数据库列名 A_COLUMN 映射到经典 Java 属性名 aColumn。-->
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+    </settings>
+
+    <!--类型别名;为常用的类型JavaBean起别名-->
+    <!--<typeAliases>-->
+    <!--
+    typeAlias:就是为一个JavaBean起别名;别名默认就是类名（不区分大小写）
+    这样在配置文件中就不需要写全类名,只用写一个别名就行
+    -->
+    <!--<typeAlias type="com.kou.entity.Employee" alias="emp"/>-->
+
+    <!--批量起别名name=""指定包名,默认别名就是类名-->
+    <!--<package name="com.kou.entity"/>-->
+    <!--</typeAliases>-->
+
+    <!--插件-->
+
+    <!--environments配置环境们-->
+    <!--environment配置一个具体的环境,每一个环境都需要一个事务管理器和数据源-->
+    <environments default="development">
+        <!--id:当前环境的唯一标识-->
+        <environment id="development">
+
+            <transactionManager type="JDBC"/>
+
+            <!--配置连接池-->
+            <dataSource type="POOLED">
+                <!--${取出配置文件中的值}-->
+                <property name="driver" value="${driverclass}"/>
+                <property name="url" value="${jdbcurl}"/>
+                <property name="username" value="${username}"/>
+                <property name="password" value="${password}"/>
+            </dataSource>
+
+        </environment>
+
+    </environments>
+
+    <!--用来考虑数据库移植性
+    <databaseIdProvider type="DB_VENDOR">
+        &lt;!&ndash;name:数据库厂商别名,value:给这个标识起一个好用的名字&ndash;&gt;
+        <property name="MySQL" value="mysql"/>
+        <property name="SQL Server" value="sqlserver"/>
+    </databaseIdProvider>-->
+
+    <!--7.写好的sql映射文件需要使用mappers注册进来-->
+    <mappers>
+        <!--class:直接引用接口全类名,需要映射文件和接口在同一个包里,并且文件名与接口一致-->
+        <!--<mapper class="com.kou.dao.EmployeeDao"/>-->
+        <!--简单的dao直接标注解-->
+
+        <!--resource:在类路径下找sql映射文件-->
+        <!--<mapper resource="com/kou/dao/EmployeeDao.xml"/>-->
+
+        <!--url:可以从磁盘或者网络路径引用-->
+
+        <!--批量扫描-->
+        <package name="com.kou.dao"/>
+    </mappers>
+
+</configuration>
+```
+
+
+
+
+
+
+
+### 3.3 SQL映射文件
+
+**代码：mybatis-sqlMapper**
+
+
+
+#### 获取自增主键的值
+
+实现获取到插入数据后的自增id
+
+```xml
+<!--插入-->
+<!--
+让mybatis自动将自增id赋值给传入employee对象的id属性
+useGeneratedKeys="true":原生JDBC获取自增主键的方法
+keyProperty=""将刚才自增的id封装给哪个属性
+-->
+<insert id="insertEmployee" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO t_employee(empname, gender, email, login_account)
+    VALUES (#{empName}, #{gender}, #{email}, #{loginAccount})
+</insert>
+```
+
+
+
+上下两例子插入时id都填为null
+
+
+
+#### 获取非自增主键的值
+
+```xml
+<insert id="insertEmployee2">
+    -- sql语句执行之前查询出id赋值给传入employee对象的id属性
+    <selectKey order="BEFORE" resultType="integer" keyProperty="id">
+        select max(id)+1 from t_employee
+    </selectKey>
+    INSERT INTO t_employee(id,empname, gender, email, login_account)
+    VALUES (#{id},#{empName}, #{gender}, #{email}, #{loginAccount})
+</insert>
+```
+
+
+
+
+
+#### ==查询--参数的各种取值==
+
+
+
+**#{}取得值其实是一个map的key**
+
+现象：
+
++ 单个参数：
+
+  基本类型：
+
+  ​	取值：`#{随便写}`
+
+  传入pojo
+
+  
+
++ 多个参数
+
+  `#{参数名}`取值无效
+
+  可用：0，1（参数的索引）或者param1，param2（第几个参数paramN）
+
+  原因：只要传入了多个参数，mybatis会自动地将这些参数封装在一个map中；封装时使用的key就是参数的索引和参数的第几个标识
+
+  #{key}就是从这个map中取值；
+
+
+
+​	**我们可以告诉mybatis，封装参数map的时候别乱来，使用我们指定的key**
+
+​	@Param：为参数指定key；命名参数
+
+​	`Employee getEmpByIdAndEmpName(@Param("id") Integer id, @Param("empName") String empName);`	
+
+​	以后推荐这么做
+
+
+
++ 传入map
+
+  将我们要使用的参数封装成一个map，直接传入一个map
+
+  ```java
+  Employee getEmployee(Map<String, Object> map);
+  ```
+
+  ```xml
+  <!--传入map-->
+  <select id="getEmployee" resultType="com.kou.entity.Employee">
+      select id, empname, gender, email, login_account
+      from t_employee
+      where id = #{id}
+  </select>
+  ```
+
+  ```java
+  Map<String, Object> map = new HashMap<>();
+  map.put("id", 1);
+  map.put("empName", "admin");
+  Employee empById = mapper.getEmployee(map);
+  System.out.println(empById);
+  ```
+
+
+
++ 传入了pojo（JavaBean）
+
+  取值：`#{pojo的属性名}`
+
+
+
+
+
+#### #{} ${}区别
+
+#{}是预编译方式，安全，不会有SQL注入问题
+
+${}不是参数预编译，而是直接和sql语句进行拼串；不安全
+
+${}可以用来取表名，在不支持参数预编译的位置要进行取值就使用${}
