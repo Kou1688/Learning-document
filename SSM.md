@@ -2080,19 +2080,6 @@ BeanFactory：bean工厂；工厂模式；帮用户创建bean
     <filter-name>hiddenHttpMethodFilter</filter-name>
     <url-pattern>/*</url-pattern>
 </filter-mapping>
-<servlet>
-    <servlet-name>dispatcherServlet</servlet-name>
-    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
-    <init-param>
-        <param-name>contextConfigLocation</param-name>
-        <param-value>classpath:springmvc.xml</param-value>
-    </init-param>
-    <load-on-startup>1</load-on-startup>
-</servlet>
-<servlet-mapping>
-    <servlet-name>dispatcherServlet</servlet-name>
-    <url-pattern>/</url-pattern>
-</servlet-mapping>
 ```
 
 ```xml
@@ -5126,3 +5113,1131 @@ keyProperty=""将刚才自增的id封装给哪个属性
 ${}不是参数预编译，而是直接和sql语句进行拼串；不安全
 
 ${}可以用来取表名，在不支持参数预编译的位置要进行取值就使用${}
+
+
+
+#### 查询返回List
+
+```java
+List<Employee> getAllEmployee();
+```
+
+```xml
+<!--查询所有员工List-->
+<!--resultType="" 如果返回的是集合,写的是集合里面元素的类型-->
+<select id="getAllEmployee" resultType="com.kou.entity.Employee">
+    select id, empname, gender, email, login_account
+    from t_employee
+</select>
+```
+
+```java
+List<Employee> allEmployee = mapper.getAllEmployee();
+```
+
+
+
+
+
+#### 查询多个封装Map
+
+```java
+/**
+ * 查询返回一个Map
+ * 列名作为key,值作为value
+ *
+ * @param id 需要查询的员工id
+ * @return 员工信息map
+ */
+Map<String, Object> getEmpByIdReturnMap(Integer id);
+
+
+/**
+ * key就是这条记录的主键;value就是这条记录封装好的对象
+ * -@MapKey("id"):把查询的记录的id的值作为key封装这个map
+ *
+ * @return 全部员工对象的map
+ */
+@MapKey("id")
+Map<Integer, Employee> getAllEmpReturnMap();
+```
+
+
+
+```xml
+<!--查询返回一个map-->
+<!--Map<String, Object> getEmpByIdReturnMap(Integer id);-->
+<select id="getEmpByIdReturnMap" resultType="map">
+    select *
+    from t_employee
+    where id = #{id}
+</select>
+<!--Map<String, Employee> getAllEmpReturnMap();-->
+<!--查询多个返回一个map-->
+<!--查询多个情况下,resultType写的是map中封装的元素的类型-->
+<select id="getAllEmpReturnMap" resultType="com.kou.entity.Employee">
+    select *
+    from t_employee
+</select>
+```
+
+
+
+
+
+
+
+#### resultMap自定义封装规则
+
+```xml
+<!--自定义结果集resultMap:自己定义每一列数据和JavaBean的映射规则-->
+<!--
+    id:唯一标识,便于后面引用
+    type:指定为哪个JavaBean自定义封装规则
+-->
+<resultMap id="myCat" type="com.kou.entity.Cat">
+    <!--
+    id:用来指定主键列的对应规则
+    column:指定哪一列是主键列
+    property:指定JavaBean的哪个属性封装id这一列数据
+    -->
+    <id column="id" property="id"/>
+    <!--普通列-->
+    <result column="cName" property="name"/>
+    <result column="cAge" property="age"/>
+    <result column="cGender" property="gender"/>
+</resultMap>
+
+
+<!--Cat getCatById(Integer id);-->
+<select id="getCatById" resultMap="myCat">
+    select *
+    from t_cat
+    where id = #{id}
+</select>
+```
+
+
+
+
+
+#### association联合查询
+
+```java
+Key getKeyById(Integer id);
+```
+
+```xml
+<!--mybatis推荐的联表查询:association-->
+<resultMap id="myKey" type="com.kou.entity.Key">
+    <id column="id" property="id"/>
+    <result column="keyname" property="keyName"/>
+    <!--接下来的属性是一个对象,自定义这个对象的封装规则,使用association-->
+    <!--property:封装这个对象的属性名,javaType:这个对象的全类名-->
+    <association property="lock" javaType="com.kou.entity.Lock">
+        <!--定义lock属性对应的这个Lock对象如何封装-->
+        <id column="lid" property="id"/>
+        <result column="lockName" property="lockName"/>
+    </association>
+</resultMap>
+<!--Key getKeyById(Integer id);-->
+<select id="getKeyById" resultMap="myKey">
+    SELECT k.id, k.keyname, k.lockid, l.id lid, l.lockName
+    FROM t_key k
+             LEFT JOIN t_lock l
+                       ON k.lockid = l.id
+    WHERE k.id = 1
+</select>
+```
+
+
+
+#### 关联关系
+
+使用中间表解决n-n关系
+
+
+
+
+
+#### collection定义结合类型属性的封装规则
+
+![image-20210828175648158](SSM.assets/image-20210828175648158.png)
+
+```xml
+<resultMap id="myLock" type="com.kou.entity.Lock">
+    <id column="id" property="id"/>
+    <result column="lockName" property="lockName"/>
+    <!--collection:定义集合元素的封装-->
+    <!--property:指定哪个属性是集合属性-->
+    <!--ofType:指定集合里面元素的类型-->
+    <collection property="keys" ofType="com.kou.entity.Key">
+        <id column="kid" property="id"/>
+        <result column="keyname" property="keyName"/>
+    </collection>
+</resultMap>
+<!--Lock getById(Integer id);-->
+<select id="getById" resultMap="myLock">
+    SELECT l.*, k.id kid, k.keyname, k.lockid
+    FROM t_lock l
+             LEFT JOIN t_key k
+                       ON l.id = k.lockid
+    WHERE l.id = #{3}
+</select>
+```
+
+
+
+
+
+#### 分步查询
+
+```java
+/**
+ * 分步查询
+ * 1.查询钥匙的时候顺便查出锁
+ * 2.Key key=keyMapper.getKeyById(1)
+ * 3.Lock lock=lockMapper.getLockById(1)
+ */
+public class Key {
+    private Integer id;
+    private String keyName;
+    private Lock lock;
+}
+```
+
+```xml
+<!--分步查询-->
+<resultMap id="myKey02" type="com.kou.entity.Key">
+    <id column="id" property="id"/>
+    <result column="keyname" property="keyName"/>
+    <!--告诉mybatis自己去调用一个查询查锁子-->
+    <!--
+    select=""指定一个查询sql的唯一标识
+    mybatis自动调用指定的sql将查出的lock封装进来
+    告诉mybatis把哪一列的值传递过去
+    column=""指定将哪一列数据传递过去
+    -->
+    <association property="lock" select="com.kou.dao.LockMapper.getLockByIdSimple"
+    column="lockid"/>
+</resultMap>
+
+<!--Key getKeyByIdSimple(Integer id);-->
+<select id="getKeyByIdSimple" resultMap="myKey02">
+    select *
+    from t_key
+    where id = #{id}
+</select>
+```
+
+```xml
+<!--Lock getLockByIdSimple(Integer id);-->
+<select id="getLockByIdSimple" resultType="com.kou.entity.Lock">
+    select *
+    from t_lock
+    where id = #{id}
+</select>
+```
+
+
+
+
+
+
+
+
+
+#### 按需加载和延迟加载
+
+联合查询优化性能
+
+```java
+//按需加载,需要的时候再去查询,全局开启按需加载策略;
+//延迟加载:不着急加载(查询对象)
+```
+
+在全局配置文件里配置
+
+```xml
+<settings>
+    <!--开启延迟加载开关-->
+    <setting name="lazyLoadingEnabled" value="true"/>
+    <!--开启属性按需加载-->
+    <setting name="aggressiveLazyLoading" value="false"/>
+</settings>
+```
+
+单个可以在联合查询里设置 fehtype属性设置懒加载
+
+
+
+
+
+#### collection分步查询
+
+与联合查询的分步查询一致
+
+**推荐还是使用联结查询，不使用分步查询**
+
+
+
+
+
+
+
+### 3.4 动态SQL
+
+简化SQL语句动态拼串操作
+
+
+
+**代码：dynamicSQL**
+
+
+
+#### if标签
+
+```java
+/**
+ * 通过参数中带的具体值来进行查询
+ *
+ * @param teacher 条件对象
+ * @return list
+ */
+List<Teacher> getTeacherByCondition(Teacher teacher);
+```
+
+```xml
+<!--if标签-->
+<!--List<Teacher> getTeacherByCondition(Teacher teacher);-->
+<select id="getTeacherByCondition" resultMap="teacherMap">
+    select id, teacherName, class_name, address, birth_date
+    from t_teacher
+    where
+    /*
+    动态sql
+    test=""编写判断条件
+    "id!=null"取出JavaBean属性中的id值,判断其是否为空
+    传入非常强大的判断条件  OGNL表达式
+    */
+    <if test="id!=null">
+        id>#{id} and
+    </if>
+    <if test="name!=null and !name.equals(&quot;&quot;)">
+        teacherName like #{name} and
+    </if>
+    <if test="birth!=null">
+        birth_date>#{birth}
+    </if>
+</select>
+```
+
+```java
+ @Test
+ public void test01() {
+     SqlSession openSession = sqlSessionFactory.openSession();
+     try {
+         TeacherMapper mapper = openSession.getMapper(TeacherMapper.class);
+         Teacher teacher = new Teacher();
+         teacher.setId(1);
+         teacher.setName("%a%");
+         teacher.setBirth(new Date());
+         List<Teacher> list = mapper.getTeacherByCondition(teacher);
+         System.out.println(list);
+     } finally {
+         openSession.commit();
+         openSession.close();
+     }
+```
+
+
+
+
+
+
+
+#### where标签
+
+有if标签就加where标签
+
+and写在前面
+
+```xml
+<!--if标签-->
+<!--List<Teacher> getTeacherByCondition(Teacher teacher);-->
+<select id="getTeacherByCondition" resultMap="teacherMap">
+    select id, teacherName, class_name, address, birth_date
+    from t_teacher
+    /*where标签可以去除掉前面的and*/
+    <where>
+        <if test="id!=null">
+            and id>#{id}
+        </if>
+        <if test="name!=null and !name.equals(&quot;&quot;)">
+            and teacherName like #{name}
+        </if>
+        <if test="birth!=null">
+            and birth_date &lt; #{birth}
+        </if>
+    </where>
+</select>
+```
+
+
+
+
+
+
+
+#### trim标签
+
+where优先
+
+```xml
+<select id="getTeacherByCondition" resultMap="teacherMap">
+    select id, teacherName, class_name, address, birth_date
+    from t_teacher
+        /*
+    prefix=""前缀:为我们下面的所有sql添加一个前缀
+    prefixOverrides="":去除整体字符串前面多余的字符
+    suffix=""为整体添加后缀 suffixOverrides=""去除整体字符串后面多余的字符
+         */
+    <trim prefix="where" prefixOverrides="and">
+        <if test="id!=null">
+            and id>#{id}
+        </if>
+        <if test="name!=null and !name.equals(&quot;&quot;)">
+            and teacherName like #{name}
+        </if>
+        <if test="birth!=null">
+            and birth_date &lt; #{birth}
+        </if>
+    </trim>
+</select>
+```
+
+
+
+
+
+#### for-each标签
+
+
+
+```java
+/**
+ * 根据传的id集合来查询
+ *
+ * @param ids 传入的id集合
+ * @return teacher对象链表
+ */
+List<Teacher> getTeacherByIdIn(@Param("ids") List<Integer> ids);
+```
+
+```xml
+<!--List<Teacher> getTeacherByIdIn(List<Integer> ids);-->
+<select id="getTeacherByIdIn" resultMap="teacherMap">
+    select *
+    from t_teacher
+    where id IN
+    /*帮我们遍历集合,collection=""指定要遍历的集合的key*/
+    /**
+    close=""以什么结束
+    index="i" 索引
+    如果遍历的是一个List;index指定的变量保存了当前的索引
+    如果遍历的是一个map;index指定的变量就是保存了当前元素的key
+    item=""每次遍历出的元素起一个变量名方便引用
+    open=""以什么开始
+    separator=""每次遍历的元素的分隔符
+    */
+    <foreach collection="ids" open="(" close=")" item="id_item" separator=",">
+        #{id_item}
+    </foreach>
+</select>
+```
+
+
+
+
+
+
+
+#### choose分支选择
+
+相当于if else
+
+
+
+```xml
+<!--List<Teacher> getTeacherByConditionChose(Teacher teacher);-->
+<select id="getTeacherByConditionChose" resultMap="teacherMap">
+    select id, teacherName, class_name, address, birth_date
+    from t_teacher
+    <where>
+        <choose>
+            <when test="id!=null">
+                id=#{id}
+            </when>
+            <when test="name.equals(&quot;&quot;) and name!=null">
+                teacherName=#{name}
+            </when>
+            <when test="birth_date!=null">
+                birth_date=#{birth}
+            </when>
+            <otherwise>
+                1=1
+            </otherwise>
+        </choose>
+    </where>
+</select>
+```
+
+
+
+
+
+#### if结合set完成mybatis动态更新（update修改）
+
+```xml
+<!--boolean updateTeacher(Teacher teacher);-->
+<update id="updateTeacher">
+    UPDATE t_teacher
+    <set>
+        <if test="name!=null and !name.equals(&quot;&quot;)">
+            teacherName=#{name},
+        </if>
+        <if test="course!=null and !course.equals(&quot;&quot;)">
+            class_name=#{course},
+        </if>
+        <if test="address!=null and !address.equals(&quot;&quot;)">
+            address=#{address},
+        </if>
+        <if test="birth!=null">
+            birth_date=#{birth}
+        </if>
+    </set>
+    <where>
+        id=#{id}
+    </where>
+</update>
+```
+
+
+
+
+
+
+
+#### OGEL和其他两个可用的参数
+
+_parameter：代表传入来的参数
+
+1. 传入了单个参数_parameter就代表这个参数
+2. 如果传入了多个参数_parameter就代表多个参数集合起来的map
+
+_databaseId：代表当前环境
+
+
+
+
+
+```xml
+<if test="_parameter">
+    and id>#{id}
+</if>
+<if test="_databaseId=='mysql'">
+    and id>#{id}
+</if>
+```
+
+
+
+
+
+#### sql标签抽取可重用的标签 include
+
+![image-20210830134041642](SSM.assets/image-20210830134041642.png)
+
+
+
+
+
+
+
+### 3.5 缓存
+
+
+
+**代码：cache**
+
+
+
+
+
+#### 简介
+
+缓存：暂时的存储一些数据;加快系统的查询速度
+
+MyBatis缓存机制：Map；能保存查询出的一些数据
+
+一级缓存：线程级别的缓存，本地缓存；SqlSession级别的缓存
+
+二级缓存：全局范围的缓存；除过当前线程；SqlSession能用外其他也可以使用；
+
+-----------------------
+
+
+
+
+
+#### 一级缓存
+
+SqlSession级别的缓存；默认存在
+
+只要之前查询过的数据，mybatis就会保存在一个缓存中（Map）；下次获取直接从缓存中拿
+
+
+
+一级缓存失效的几种情况：
+
+1. 不同的SqlSession：使用不同的一级缓存
+
+   只有在同一个SqlSession期间查到的数据会保存在这个SqlSession的缓存中
+
+   下次使用这个SqlSession查询会从缓存中拿
+
+2. 同一个方法，不同的参数，由于可能之前没查询过，所以还会发新的sql
+
+3. 在这个SqlSession期间执行任何一次增删改操作，增删改操作会把缓存清空
+
+4. 手动清缓存`openSession.clearCache`
+
+
+
+每次查询，先看一级缓存中有没有，如果没有就去发送新的Sql，每个sqlSession拥有自己的一级缓存
+
+
+
+
+
+#### 二级缓存
+
+namespace级别的缓存
+
+一级缓存：SqlSession关闭或者提交之后，一级缓存的数据会放在二级缓存中；
+
+开启全局缓存开关
+
+`<setting name="cacheEnabled value=true/>"`
+
+在sqlMapper配置文件里配置，让其使用二级缓存
+
+`<cache></cache>`
+
+使用二级缓存JavaBean需要实现序列化
+
+
+
+
+
+
+
+#### 查询顺序
+
+1. 不会出现一级缓存和二级缓存中有同一个数据。
+
+   二级缓存中：一级缓存关闭了就有了；
+
+   一级缓存中：二级缓存中没有此数据，就会看一级缓存，一级缓存没有去查数据库。
+
+2. 任何时候都是先看二级缓存，再看一级缓存，如果大家都没有再去查询数据库
+
+
+
+
+
+#### 缓存原理
+
+![image-20210830170445652](SSM.assets/image-20210830170445652.png)
+
+
+
+
+
+
+
+#### 缓存有关的属性
+
+在select标签里使用`useCache="true"`使用二级缓存，但对一级缓存没影响
+
+增删改查标签里的flushCache属性，sql执行后会同时清空一级和二级缓存 ，查询默认为false，其他为true
+
+
+
+
+
+#### 整合第三方缓存
+
+导包
+
+```xml
+<!--ehcache缓存-->
+<dependency>
+    <groupId>org.mybatis.caches</groupId>
+    <artifactId>mybatis-ehcache</artifactId>
+    <version>1.2.1</version>
+</dependency>
+<!-- https://mvnrepository.com/artifact/org.ehcache/ehcache -->
+<dependency>
+    <groupId>org.ehcache</groupId>
+    <artifactId>ehcache</artifactId>
+    <version>3.9.6</version>
+</dependency>
+```
+
+
+
+ehcache要工作需要配置文件
+
+ehcache.xml放在类路径下
+
+
+
+
+
+
+
+
+
+### 3.6 SSM整合
+
+
+
+**代码:ssm_zhenghe**
+
+Spring+Spring MVC+ MyBatis
+
+1. 导包
+
+   Spring
+
+   SpringMVC
+
+   MyBatis
+
+   其他包
+
+   ```xml
+   <dependencies>
+       <!--junit-->
+       <dependency>
+         <groupId>junit</groupId>
+         <artifactId>junit</artifactId>
+         <version>4.13.2</version>
+         <scope>test</scope>
+       </dependency>
+   
+       <!--Spring-->
+       <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-webmvc</artifactId>
+         <version>5.3.9</version>
+       </dependency>
+       <!--Spring日志包-->
+       <dependency>
+         <groupId>commons-logging</groupId>
+         <artifactId>commons-logging</artifactId>
+         <version>1.2</version>
+       </dependency>
+       <!-- https://mvnrepository.com/artifact/org.springframework/spring-aspects -->
+       <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-aspects</artifactId>
+         <version>5.3.9</version>
+       </dependency>
+       <!--AOP-->
+       <dependency>
+         <groupId>org.aspectj</groupId>
+         <artifactId>aspectjweaver</artifactId>
+         <version>1.9.7</version>
+       </dependency>
+       <!--cglib动态代理-->
+       <dependency>
+         <groupId>cglib</groupId>
+         <artifactId>cglib</artifactId>
+         <version>3.3.0</version>
+       </dependency>
+       <!-- spring-jdbc -->
+       <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-jdbc</artifactId>
+         <version>5.3.9</version>
+       </dependency>
+       <!--spring-orm -->
+       <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-orm</artifactId>
+         <version>5.3.9</version>
+       </dependency>
+       <!--spring-tx -->
+       <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-tx</artifactId>
+         <version>5.3.9</version>
+       </dependency>
+       <!--spring-test -->
+       <dependency>
+         <groupId>org.springframework</groupId>
+         <artifactId>spring-test</artifactId>
+         <version>5.3.9</version>
+         <scope>test</scope>
+       </dependency>
+   
+       <!--jackson ajax-->
+       <dependency>
+         <groupId>com.fasterxml.jackson.core</groupId>
+         <artifactId>jackson-databind</artifactId>
+         <version>2.12.4</version>
+       </dependency>
+       <dependency>
+         <groupId>com.fasterxml.jackson.core</groupId>
+         <artifactId>jackson-core</artifactId>
+         <version>2.12.4</version>
+       </dependency>
+       <dependency>
+         <groupId>com.fasterxml.jackson.core</groupId>
+         <artifactId>jackson-annotations</artifactId>
+         <version>2.12.4</version>
+       </dependency>
+   
+       <!--文件上传-->
+       <!-- https://mvnrepository.com/artifact/commons-fileupload/commons-fileupload -->
+       <dependency>
+         <groupId>commons-fileupload</groupId>
+         <artifactId>commons-fileupload</artifactId>
+         <version>1.4</version>
+       </dependency>
+       <!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
+       <dependency>
+         <groupId>commons-io</groupId>
+         <artifactId>commons-io</artifactId>
+         <version>2.11.0</version>
+       </dependency>
+   
+       <!-- https://mvnrepository.com/artifact/javax.servlet.jsp.jstl/jstl -->
+       <dependency>
+         <groupId>javax.servlet.jsp.jstl</groupId>
+         <artifactId>jstl</artifactId>
+         <version>1.2</version>
+       </dependency>
+       <!-- https://mvnrepository.com/artifact/org.apache.taglibs/taglibs-standard-impl -->
+       <dependency>
+         <groupId>org.apache.taglibs</groupId>
+         <artifactId>taglibs-standard-impl</artifactId>
+         <version>1.2.5</version>
+         <scope>runtime</scope>
+       </dependency>
+   
+       <!--MyBatis-->
+       <dependency>
+         <groupId>org.mybatis</groupId>
+         <artifactId>mybatis</artifactId>
+         <version>3.5.7</version>
+       </dependency>
+       <!--数据库驱动-->
+       <dependency>
+         <groupId>mysql</groupId>
+         <artifactId>mysql-connector-java</artifactId>
+         <version>8.0.26</version>
+       </dependency>
+       <dependency>
+         <groupId>com.mchange</groupId>
+         <artifactId>c3p0</artifactId>
+         <version>0.9.5.5</version>
+       </dependency>
+       <!-- mybatis-spring整合包 -->
+       <dependency>
+         <groupId>org.mybatis</groupId>
+         <artifactId>mybatis-spring</artifactId>
+         <version>2.0.6</version>
+       </dependency>
+   
+     </dependencies>
+   
+   ```
+
+
+
+
+
+2. 配置
+
+**web.xml配置**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+         version="4.0"
+         metadata-complete="false">
+    <welcome-file-list>
+        <welcome-file>index.jsp</welcome-file>
+    </welcome-file-list>
+    <!--设置spring容器启动-->
+    <context-param>
+        <param-name>contextConfigLocation</param-name>
+        <param-value>classpath:spring/spring.xml</param-value>
+    </context-param>
+    <listener>
+        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+    </listener>
+
+    <!--前端控制器-->
+    <servlet>
+        <servlet-name>dispatcherServlet</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <init-param>
+            <param-name>contextConfigLocation</param-name>
+            <param-value>classpath:spring/springmvc.xml</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>dispatcherServlet</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+
+    <!--字符编码-->
+    <filter>
+        <filter-name>characterEncodingFilter</filter-name>
+        <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+        <init-param>
+            <param-name>encoding</param-name>
+            <param-value>UTF-8</param-value>
+        </init-param>
+        <init-param>
+            <param-name>forceRequestEncoding</param-name>
+            <param-value>true</param-value>
+        </init-param>
+        <init-param>
+            <param-name>forceResponseEncoding</param-name>
+            <param-value>true</param-value>
+        </init-param>
+    </filter>
+    <filter-mapping>
+        <filter-name>characterEncodingFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!--Rest-->
+    <filter>
+        <filter-name>hiddenHttpMethodFilter</filter-name>
+        <filter-class>org.springframework.web.filter.HiddenHttpMethodFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>hiddenHttpMethodFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+</web-app>
+```
+
+
+
+​	**SpringMVC配置**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/mvc https://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <!--MVC扫描规则-->
+    <context:component-scan base-package="com.kou" use-default-filters="false">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+    <!--视图解析器-->
+    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="prefix" value="/WEB-INF/pages/"/>
+        <property name="suffix" value=".jsp"/>
+    </bean>
+
+    <!--文件上传解析器-->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <property name="defaultEncoding" value="UTF-8"/>
+        <property name="maxUploadSize" value="#{1024*1024*20}"/>
+    </bean>
+
+    <!--扫静态资源-->
+    <mvc:default-servlet-handler/>
+    <!--扫动态资源-->
+    <mvc:annotation-driven/>
+</beans>
+```
+
+
+
+
+
+**Spring配置**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context
+       https://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/aop
+       https://www.springframework.org/schema/aop/spring-aop.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <!--扫描规则-->
+    <context:component-scan base-package="com.kou">
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+    <!--导入外部配置文件-->
+    <context:property-placeholder location="classpath:dbConfig.properties"/>
+    <!--数据源-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="user" value="${jdbc.user}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <property name="driverClass" value="${jdbc.driverClass}"/>
+        <property name="jdbcUrl" value="${jdbc.jdbcUrl}"/>
+        <property name="maxPoolSize" value="${jdbc.maxPoolSize}"/>
+        <property name="minPoolSize" value="${jdbc.minPoolSize}"/>
+    </bean>
+
+    <!--mybatis-->
+    <!--根据配置文件得到sqlSessionFactory-->
+    <bean id="sqlSessionFactoryBean" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="configLocation" value="classpath:mybatis/mybatis-config.xml"/>
+        <property name="dataSource" ref="dataSource"/>
+        <!--指定xml映射文件位置-->
+        <property name="mapperLocations" value="classpath:mybatis/mapper/*.xml"/>
+    </bean>
+
+    <!--将每一个dao接口实现放入ioc容器中-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!--指定dao接口所在的包-->
+        <property name="basePackage" value="com.kou.dao"/>
+
+    </bean>
+
+    <!--配置事务控制-->
+    <bean id="manager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <!--基于xml配置,配置事务;哪些方法切入事务还要写切入点表达式-->
+    <aop:config>
+        <!--配置切入点表达式-->
+        <aop:pointcut id="txPoint" expression="execution(* com.kou.service.*.*(..))"/>
+        <aop:advisor advice-ref="myTx" pointcut-ref="txPoint"/>
+    </aop:config>
+    <!--配置事务增强属性建议-->
+    <tx:advice id="myTx" transaction-manager="manager">
+        <!--配置事务属性-->
+        <tx:attributes>
+            <tx:method name="*" rollback-for="java.lang.Exception"/>
+            <tx:method name="get*" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+
+</beans>
+```
+
+
+
+
+
+3. 整合步骤
+
+   ==web.xml中一定要有监听器！！！！1==
+
+   + 导入整合包(能将dao的实现加入到容器中)
+
+     ```xml
+     <!-- mybatis-spring整合包 -->
+     <dependency>
+       <groupId>org.mybatis</groupId>
+       <artifactId>mybatis-spring</artifactId>
+       <version>2.0.6</version>
+     </dependency>
+     ```
+
+     在spring文件中
+
+     ```xml
+     <!--mybatis-->
+         <!--根据配置文件得到sqlSessionFactory-->
+         <bean id="sqlSessionFactoryBean" class="org.mybatis.spring.SqlSessionFactoryBean">
+             <property name="configLocation" value="classpath:mybatis/mybatis-config.xml"/>
+             <property name="dataSource" ref="dataSource"/>
+             <!--指定xml映射文件位置-->
+             <property name="mapperLocations" value="classpath:mybatis/mapper/*.xml"/>
+         </bean>
+     
+         <!--将每一个dao接口实现放入ioc容器中-->
+         <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+             <!--指定dao接口所在的包-->
+             <property name="basePackage" value="com.kou.dao"/>
+     
+         </bean>
+     ```
+
+     mybatis配置文件中只留setting
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <settings>
+        <setting name="lazyLoadingEnabled" value="true"/>
+        <setting name="aggressiveLazyLoading" value="false"/>
+        <setting name="cacheEnabled" value="true"/>
+    </settings>
+</configuration>
+```
+
+4. 测试
+
+
+
+
+
+
+
+#### 3.7 MBG：MyBatisGenerator
+
+
+
+代码生成器
+
+MyBatis官方提供的代码生成器；帮我们逆向生成代码
+
+
+
+逆向工程：根据数据表，逆向分析，自动生成 JavaBean--dao--dao.x
+
+
+
+
+
+
+
+==练习项目：SSM-CRUD==
+
