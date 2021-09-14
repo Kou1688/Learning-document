@@ -46,6 +46,10 @@ ctrl+shift+/：多行注释块
 
 ctrl+shift+alt：多行操作
 
+ctrl+f12：查看类结构
+
+ctrl+h：查看继承树
+
 
 
 
