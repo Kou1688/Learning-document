@@ -8,7 +8,7 @@
 
 # spring与springboot背景
 
-https://www.yuque.com/atguigu/springboot
+此笔记使用的是SpringBoot2.5.4
 
 
 
@@ -1356,7 +1356,7 @@ WelcomePageHandlerMapping(TemplateAvailabilityProviders templateAvailabilityProv
 
 
 
-### 3.请求参数处理
+### 3.请求参数处理（源码分析）
 
 #### 0.请求映射
 
@@ -2124,19 +2124,846 @@ public WebMvcConfigurer webMvcConfigurer() {
 
 
 
-### 4.响应数据与内容协商
+### 4.响应数据与内容协商（源码分析）
+
+![image-20210915103651022](SpringBoot核心技术.assets/image-20210915103651022.png)
+
+#### 1.响应JSON
+
+##### 1.1 jackson.jar+@ResponseBody
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+web场景自动引入了json场景
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-json</artifactId>
+    <version>2.3.4.RELEASE</version>
+    <scope>compile</scope>
+</dependency>
+```
+
+
+
+![image-20210915104025869](SpringBoot核心技术.assets/image-20210915104025869.png)
+
+给前端自动返回json数据
+
+
+
+###### 1.返回值解析器
+
+![image-20210915105118009](SpringBoot核心技术.assets/image-20210915105118009.png)
+
+![image-20210915110409201](SpringBoot核心技术.assets/image-20210915110409201.png)
+
+![image-20210915110622090](SpringBoot核心技术.assets/image-20210915110622090.png)
+
+```java
+@Override
+public void handleReturnValue(@Nullable Object returnValue, MethodParameter returnType,
+      ModelAndViewContainer mavContainer, NativeWebRequest webRequest) throws Exception {
+   HandlerMethodReturnValueHandler handler = selectHandler(returnValue, returnType);
+   if (handler == null) {
+      throw new IllegalArgumentException("Unknown return value type: " + returnType.getParameterType().getName());
+   }
+   handler.handleReturnValue(returnValue, returnType, mavContainer, webRequest);
+}
+```
+
+
+
+
+
+###### 2.返回值解析器原理
+
+![image-20210915110959110](SpringBoot核心技术.assets/image-20210915110959110.png)
+
+1. 返回值处理器判断是否支持这种类型返回值 supportsReturnType
+2. 返回值处理器调用 handleReturnValue 进行处理
+
+3. RequestResponseBodyMethodProcessor 可以处理返回值标了@ResponseBody 注解的。
+
+- - 1. 利用 MessageConverters 进行处理 将数据写为json
+
+- - - 1. 内容协商（浏览器默认会以请求头的方式告诉服务器他能接受什么样的内容类型）
+    - 2. 服务器最终根据自己自身的能力，决定服务器能生产出什么样内容类型的数据，
+
+- - - 3. SpringMVC会挨个遍历所有容器底层的 HttpMessageConverter ，看谁能处理？
+
+- - - - 1. 得到MappingJackson2HttpMessageConverter可以将对象写为json
+      - 2. 利用MappingJackson2HttpMessageConverter将对象转为json再写出去。
+
+
+
+##### 1.2 SpringMVC到底支持哪些返回值
+
+```java
+ModelAndView
+Model
+View
+ResponseEntity
+ResponseBodyEmitter
+StreamingResponseBody
+HttpEntity
+HttpHeaders
+Callable
+DeferredResult
+ListenableFuture
+CompletionStage
+WebAsyncTask
+有@ModelAttribute
+@ResponseBody---->RequestResponseBodyMethodProcessor
+
+```
+
+
+
+##### 1.3 HTTPMessageConverter原理
+
+ HTTPMessageConverter：是否支持此Class类型的对象，转为MediaType类型的数据。
+
+例子：Person对象转为JSON。或者JSON转为Person。
+
+
+
+
+
++ 默认的MessageConverter
+
+![image-20210915120637018](SpringBoot核心技术.assets/image-20210915120637018.png)
+
+0 - 只支持Byte类型的
+
+1 - String
+
+2 - String
+
+3 - Resource
+
+4 - ResourceRegion
+
+5 - DOMSource.**class ** SAXSource.**class**) \ StAXSource.**class **StreamSource.**class **Source.**class**
+
+**6 -** MultiValueMap
+
+7 - **true** 
+
+**8 - true**
+
+9 - 支持注解方式xml处理的。
+
+
+
+最终 MappingJackson2HttpMessageConverter  把对象转为JSON（利用底层的jackson的objectMapper转换的）
+
+
+
+#### 2.内容协商
+
+根据客户端接收能力不同，返回不同媒体类型的数据。
+
+##### 1.引入xml依赖
+
+```xml
+ <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+</dependency>
+```
+
+
+
+##### 2.postman测试
+
+只需要改变请求头中Accept字段。Http协议中规定的，告诉服务器本客户端可以接收的数据类型。
+
+![image-20210915151239082](SpringBoot核心技术.assets/image-20210915151239082.png)
+
+
+
+
+
+##### 3、开启浏览器参数方式内容协商功能
+
+为了方便内容协商，开启基于请求参数的内容协商功能。
+
+```yaml
+spring:
+    contentnegotiation:
+      favor-parameter: true  #开启请求参数内容协商模式
+```
+
+发请求： http://localhost:8080/test/person?format=json
+
+[http://localhost:8080/test/person?format=](http://localhost:8080/test/person?format=json)xml
+
+确定客户端接收什么样的内容类型；
+
+1、Parameter策略优先确定是要返回json数据（获取请求头中的format的值）
+
+2、最终进行内容协商返回给客户端json即可。
+
+
+
+
+
+##### 4.内容协商原理
+
++ 判断当前响应头中是否已经有确定的媒体类型，MediaType
+
++ 获取客户端支持接收的内容类型。（获取客户端Accepte请求头字段内容）
+
+  - **【application/xml】**
+
+  - - **contentNegotiationManager 内容协商管理器 默认使用基于请求头的策略**
+    - 
+
+  - - **HeaderContentNegotiationStrategy  确定客户端可以接收的内容类型** 
+    - 
+
++ 遍历循环所有当前系统的 **MessageConverter**，看谁支持操作这个对象（Person）
+
++ 找到支持操作Person的converter，把converter支持的媒体类型统计出来。
+
++ 客户端需要【application/xml】。服务端能力【10种、json、xml】
+
+  - ![image-20210915152331725](SpringBoot核心技术.assets/image-20210915152331725.png)
+
++ 进行内容协商的最佳匹配媒体类型
+
++ 用 支持 将对象转为 最佳匹配媒体类型 的converter。调用它进行转化 。
+
+  ![image-20210915152252606](SpringBoot核心技术.assets/image-20210915152252606.png)
+
+
+
+
+
+
+
+##### 5、自定义 MessageConverter
+
+```java
+/**
+ * 1.浏览器发请求直接返回xml [application/xml]  jacksonXmlConverter
+ * 2.如果是ajax请求 返回 json [application/json] jacksonJsonConverter
+ * 3.如果app发请求,返回自定义协议数据 [application/x-kou]  xxxxConverter
+ *
+ * 步骤:
+ * 1.添加自定义的MessageConverter进系统底层
+ * 2.系统底层就会统计出所有MessageConverter能操作哪些类型
+ * 3.客户端内容协商[kou--->kou]
+ */
+```
+
+**实现多协议数据兼容。json、xml、k-kou**
+
+**0、**@ResponseBody 响应数据出去 调用 **RequestResponseBodyMethodProcessor** 处理
+
+1、Processor 处理方法返回值。通过 **MessageConverter** 处理
+
+2、所有 **MessageConverter** 合起来可以支持各种媒体类型数据的操作（读、写）
+
+3、内容协商找到最终的 **messageConverter**；
+
+SpringMVC的什么功能。一个入口给容器中添加一个  WebMvcConfigurer
+
+请求头的内容协商
+
+```java
+/**
+ * 自定义的converter
+ *
+ * @author KouChaoJie
+ * @date: 2021/9/15 15:52
+ */
+public class KouMessageConverter implements HttpMessageConverter<Person> {
+    @Override
+    public List<MediaType> getSupportedMediaTypes(Class<?> clazz) {
+        return HttpMessageConverter.super.getSupportedMediaTypes(clazz);
+    }
+
+    @Override
+    public boolean canRead(Class<?> clazz, MediaType mediaType) {
+        return false;
+    }
+
+    @Override
+    public boolean canWrite(Class<?> clazz, MediaType mediaType) {
+        return clazz.isAssignableFrom(Person.class);
+    }
+
+    /**
+     * 服务器要统计所有MessageConverter都能写出哪些内容类型
+     *
+     * @return application[k-kou]
+     */
+    @Override
+    public List<MediaType> getSupportedMediaTypes() {
+        return MediaType.parseMediaTypes("application/k-kou");
+    }
+
+    @Override
+    public Person read(Class<? extends Person> clazz, HttpInputMessage inputMessage) throws IOException, HttpMessageNotReadableException {
+        return null;
+    }
+
+    @Override
+    public void write(Person person, MediaType contentType, HttpOutputMessage outputMessage) throws IOException, HttpMessageNotWritableException {
+        //自定义协议数据的写出
+        String data = person.getUserName() + ";" + person.getAge() + ";" + person.getBirth();
+
+        //写出去
+        OutputStream body = outputMessage.getBody();
+
+        body.write(data.getBytes());
+    }
+}
+
+
+
+@Bean
+    public WebMvcConfigurer webMvcConfigurer(){
+        return new WebMvcConfigurer() {
+
+            @Override
+            public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+				converters.add(new KouMessageConverter());
+            }
+        }
+    }
+```
+
+
+
+
+
+参数内容协商
+
+```java
+/**
+ * 配置内容协商选项
+ * 自定义内容协商策略
+ */
+@Bean
+    public WebMvcConfigurer webMvcConfigurer() {
+        return new WebMvcConfigurer() {
+@Override
+public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
+    //Map<String, MediaType> mediaTypes
+    Map<String, MediaType> mediaTypes = new HashMap<>();
+    mediaTypes.put("json", MediaType.APPLICATION_JSON);
+    mediaTypes.put("xml", MediaType.APPLICATION_XML);
+    mediaTypes.put("kou", MediaType.parseMediaType("application/k-kou"));
+    //指定支持解析哪些参数对象的哪些媒体类型
+    ParameterContentNegotiationStrategy parameterStrategy = new ParameterContentNegotiationStrategy(mediaTypes);
+    configurer.strategies(Collections.singletonList(parameterStrategy));
+}
+    }
+}
+```
+
+
+
+自定义内容协商管理器后，默认请求头的内容协商就失效了，要再添加一个基于请求头的管理器
+
+```java
+/**
+ * 配置内容协商选项
+ * 自定义内容协商策略
+ */
+@Bean
+    public WebMvcConfigurer webMvcConfigurer(){
+        return new WebMvcConfigurer() {
+@Override
+public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
+    //Map<String, MediaType> mediaTypes
+    Map<String, MediaType> mediaTypes = new HashMap<>();
+    mediaTypes.put("json", MediaType.APPLICATION_JSON);
+    mediaTypes.put("xml", MediaType.APPLICATION_XML);
+    mediaTypes.put("kou", MediaType.parseMediaType("application/k-kou"));
+    //指定支持解析哪些参数对象的哪些媒体类型
+    ParameterContentNegotiationStrategy parameterStrategy = new ParameterContentNegotiationStrategy(mediaTypes);
+    
+    HeaderContentNegotiationStrategy headerStrategy = new HeaderContentNegotiationStrategy();
+    
+    configurer.strategies(Arrays.asList(parameterStrategy, headerStrategy));
+}
+        }
+    }
+```
+
+
+
+**有可能我们添加的自定义的功能会覆盖默认很多功能，导致一些默认的功能失效。**
+
+
+
+
 
 
 
 ### 5.视图解析与模板引擎
 
+视图解析：**SpringBoot默认不支持 JSP，需要引入第三方模板引擎技术实现页面渲染。**
+
+#### 1.视图解析
+
+![image-20210915170054636](SpringBoot核心技术.assets/image-20210915170054636.png)
+
+
+
+##### 1.视图解析原理流程
+
+1. 目标方法处理的过程中，所有数据都会被放在ModelAndViewContaniner里面，包括数据和视图地址。
+2. 方法的参数是一个自定义类型对象（从请求参数中确定的），把他重新放在ModelAndViewContainer。
+3. 任何目标方法执行完成以后都会返回ModelAndView对象。
+4. processDispatchResult处理派发结果（页面如何响应）
+   + **render**(**mv**, request, response); 进行页面渲染逻辑
+     + 根据方法的String返回值得到View对象【定义了页面的渲染逻辑】
+       + 所有的视图解析器尝试是否能根据当前返回值得到View对象
+       + 得到了(返回值:redirect:/main.html)------>Thymeleaf new RedirectView()
+       + ContentNegotiationViewResolver 里面包含了下面所有的视图解析器，内部还是利用下面所有视图解析器得到视图对象。
+       + view.render(mv.getModelInternal(), request, response);   视图对象调用自定义的render进行页面渲染工作
+
++ - - + RedirectView 如何渲染【重定向到一个页面】
+
+    - + 获取目标url地址**
+
+- - - + response.sendRedirect(encodedURL);
+
+**视图解析：**
+
+- - **返回值以 forward: 开始： new InternalResourceView(forwardUrl); **-->  转发request.getRequestDispatcher(path).forward(request, response);
+  - **返回值以** **redirect: 开始：** **new RedirectView() --》 render就是重定向** 
+
+- - **返回值是普通字符串： new ThymeleafView（）--->** 
+
+
+
+
+
+
+
+![image-20210916204916923](SpringBoot核心技术.assets/image-20210916204916923.png)
+
+
+
+![image-20210916205738113](SpringBoot核心技术.assets/image-20210916205738113.png)
+
+
+
+
+
+
+
+
+
+#### 2.模板引擎-Thymeleaf
+
+##### 1.thymelea简介
+
+Thymeleaf is a modern server-side Java template engine for both web and standalone environments, capable of processing HTML, XML, JavaScript, CSS and even plain text.
+
+**现代化、服务端Java模板引擎**
+
+##### 2.基本语法
+
+1. 表达式
+
+| 表达式名字 | 语法   | 用途                               |
+| ---------- | ------ | ---------------------------------- |
+| 变量取值   | ${...} | 获取请求域、session域、对象等值    |
+| 选择变量   | *{...} | 获取上下文对象值                   |
+| 消息       | #{...} | 获取国际化等值                     |
+| 链接       | @{...} | 生成链接                           |
+| 片段表达式 | ~{...} | jsp:include 作用，引入公共页面片段 |
+
+
+
+2. 字面量
+
+   文本值: **'one text'** **,** **'Another one!'** **,…**数字: **0** **,** **34** **,** **3.0** **,** **12.3** **,…**布尔值: **true** **,** **false**
+
+   空值: **null**
+
+   变量： one，two，.... 变量不能有空格
+
+
+
+3. 文本操作
+
+   字符串拼接: **+**
+
+   变量替换: **|The name is ${name}|** 
+
+
+
+4. 数学运算
+
+   运算符: + , - , * , / , %
+
+
+
+5. 布尔运算
+
+   运算符:  **and** **,** **or**
+
+   一元运算: **!** **,** **not** 
+
+   
+
+6. 比较运算
+
+   比较: **>** **,** **<** **,** **>=** **,** **<=** **(** **gt** **,** **lt** **,** **ge** **,** **le** **)**等式: **==** **,** **!=** **(** **eq** **,** **ne** **)** 
+
+
+
+7. 条件运算
+
+   If-then: **(if) ? (then)**
+
+   If-then-else: **(if) ? (then) : (else)**
+
+   Default: (value) **?: (defaultvalue)** 
+
+
+
+8. 特殊操作
+
+   无操作： _
+
+
+
+##### 3.设置属性值 th:attr
+
+设置单个值
+
+```html
+<form action="subscribe.html" th:attr="action=@{/subscribe}">
+  <fieldset>
+    <input type="text" name="email" />
+    <input type="submit" value="Subscribe!" th:attr="value=#{subscribe.submit}"/>
+  </fieldset>
+</form>
+```
+
+
+
+设置多个值
+
+```html
+<img src="../../images/gtvglogo.png"  th:attr="src=@{/images/gtvglogo.png},title=#{logo},alt=#{logo}" />
+```
+
+
+
+以上两个的代替写法 th:xxxx
+
+```html
+<input type="submit" value="Subscribe!" th:value="#{subscribe.submit}"/>
+<form action="subscribe.html" th:action="@{/subscribe}">
+```
+
+所有h5兼容的标签写法
+
+https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf.html#setting-value-to-specific-attributes
+
+
+
+##### 4、迭代
+
+```html
+<tr th:each="prod : ${prods}">
+        <td th:text="${prod.name}">Onions</td>
+        <td th:text="${prod.price}">2.41</td>
+        <td th:text="${prod.inStock}? #{true} : #{false}">yes</td>
+</tr>
+```
+
+
+
+```html
+<tr th:each="prod,iterStat : ${prods}" th:class="${iterStat.odd}? 'odd'">
+  <td th:text="${prod.name}">Onions</td>
+  <td th:text="${prod.price}">2.41</td>
+  <td th:text="${prod.inStock}? #{true} : #{false}">yes</td>
+</tr>
+```
+
+
+
+##### 5、条件运算
+
+```html
+<a href="comments.html"
+th:href="@{/product/comments(prodId=${prod.id})}"
+th:if="${not #lists.isEmpty(prod.comments)}">view</a>
+```
+
+
+
+```html
+<div th:switch="${user.role}">
+  <p th:case="'admin'">User is an administrator</p>
+  <p th:case="#{roles.manager}">User is a manager</p>
+  <p th:case="*">User is some other thing</p>
+</div>
+```
+
+
+
+
+
+##### 6、属性优先级
+
+![image-20210915174012092](SpringBoot核心技术.assets/image-20210915174012092.png)
+
+
+
+
+
+#### 3.Thymeleaf使用
+
++ 引入场景
+
+  ```xml
+  <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-thymeleaf</artifactId>
+  </dependency>
+  ```
+
++ Thymeleaf会自动配置好
+
+  ```java
+  public static final String DEFAULT_PREFIX = "classpath:/templates/";
+  
+  public static final String DEFAULT_SUFFIX = ".html";  //xxx.html
+  ```
+
++ 在HTML页面要加上名称空间
+
+  ```html
+  <html lang="en" xmlns:th="http://www.thymeleaf.org">
+  ```
+
++ 页面开发
+
+  ```html
+  <!DOCTYPE html>
+  <html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+      <meta charset="UTF-8">
+      <title>Title</title>
+  </head>
+  <body>
+  
+  <h1 th:text="${msg}">哈哈</h1>
+  <h2>
+      <a href="http://www.cucn.edu.cn/" th:href="${link}">南京传媒学院</a><br/>
+      <a href="http://www.cucn.edu.cn/" th:href="@{link}">南京传媒学院2</a>
+  </h2>
+  
+  </body>
+  </html>
+  ```
+
+
+
+
+
+#### 4.构建后台管理系统
+
+**代码：boot-05-web-admin**
+
+##### 1.项目创建
+
+看代码 略
+
+
+
+##### 2.静态资源处理
+
+看代码 略
+
+
+
+##### 3.路径构建
+
+看代码 略
+
+
+
+##### 4.模板抽取
+
+看代码 略
+
+
+
+##### 5.页面跳转
+
+看代码 略
+
+
+
+##### 6.数据渲染
+
+看代码 略
+
+
+
+
+
+
+
 
 
 ### 6.拦截器
 
+#### 1.HandlerInterceptor接口
+
+```java
+/**
+ * 登录检查拦截器
+ * 拦截器如何工作?
+ * 1.配置好拦截器要拦截哪些请求
+ * 2.把这些配置放在容器中
+ * <p>
+ * 拦截器使用:
+ * 1.编写一个拦截器实现HandlerInterceptor接口
+ * 2.拦截器注册到容器中（实现WebMvcConfigurer方法）
+ * 3.指定拦截规则【如果拦截所有,静态资源也会被拦截】
+ *
+ * @author KouChaoJie
+ * @date: 2021/9/16 21:34
+ */
+@Slf4j
+public class LoginInterceptor implements HandlerInterceptor {
+    /**
+     * 目标方法执行前拦截
+     * 登录检查逻辑
+     *
+     * @param handler
+     * @return
+     */
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        String requestUri = request.getRequestURI();
+        log.info("拦截的请求路径是{}", requestUri);
 
 
-### 7.跨域
+        HttpSession session = request.getSession();
+        Object loginUser = session.getAttribute("loginUser");
+
+        if (loginUser != null) {
+            //用户登陆了,放行
+            return true;
+        } else {
+            //未登录,拦截住,请求转发到登录页
+            request.setAttribute("msg", "请先登录");
+            request.getRequestDispatcher("/").forward(request, response);
+        }
+
+        return false;
+    }
+
+    /**
+     * 目标方法执行完成后拦截
+     *
+     * @param handler
+     * @param modelAndView
+     */
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+        log.info("postHandle执行{}", modelAndView);
+    }
+
+    /**
+     * 页面渲染完成后
+     *
+     * @param handler
+     * @param ex
+     */
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        log.info("afterCompletion执行异常", ex);
+    }
+}
+```
+
+
+
+#### 2.配置拦截器
+
+```java
+/**
+ * Admin配置类
+ * 定制SpringMVC的一些功能
+ *
+ * @author KouChaoJie
+ * @date: 2021/9/16 21:40
+ */
+@Configuration
+public class AdminWebConfig implements WebMvcConfigurer {
+
+    /**
+     * 添加拦截器
+     * 设置拦截器逻辑
+     *
+     * @param registry 拦截器注册中心
+     */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        //添加登录检查拦截器,设置拦截路径
+        registry.addInterceptor(new LoginInterceptor())
+                //这种情况下静态资源也会拦截
+                .addPathPatterns("/**")
+                .excludePathPatterns("/", "/login", "/css/**", "/fonts/**", "/images/**", "/js/**");
+    }
+}
+```
+
+
+
+
+
+#### 3.拦截器原理
+
+1. 根据当前请求找到可以处理请求的handler，以及handler的所有拦截器
+
+2. 先来顺序执行所有拦截器的preHandle方法
+   + 如果当前拦截器prehandle返回为true，则执行下一个拦截器的preHandle
+   + 如果当前拦截器返回为false。直接倒序执行所有已经执行了的拦截器的  afterCompletion；
+3. 如果任何一个拦截器返回false，直接跳出，不执行目标方法。
+4. 所有拦截器返回true，执行目标方法
+5. **倒序执行所有拦截器的postHandle方法。**
+6. **前面的步骤有任何异常都会直接倒序触发** afterCompletion
+7. 页面成功渲染完成以后，也会倒序触发 afterCompletion
+
+
+
+
+
+
+
+
+
+![image-20210916222655693](SpringBoot核心技术.assets/image-20210916222655693.png)
+
+![image-20210916223920663](SpringBoot核心技术.assets/image-20210916223920663.png)
+
+
+
+
+
+
+
+### 7.文件上传
 
 
 
