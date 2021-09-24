@@ -1001,6 +1001,25 @@ person:
 
 
 
+### 配置多个yml文件
+
+SpringBoot，在application.yml 引入其它配置文件。
+
+具体实现
+新建了两个配置文件（注意格式）
+
+![image-20210918172802025](SpringBoot核心技术.assets/image-20210918172802025.png)
+
+分别配置属性值
+
+在application.yml 引入配置
+
+![image-20210918172821511](SpringBoot核心技术.assets/image-20210918172821511.png)
+
+
+
+
+
 
 
 ## 2.Web开发
@@ -2965,18 +2984,1626 @@ public class AdminWebConfig implements WebMvcConfigurer {
 
 ### 7.文件上传
 
+#### 1.页面表单
+
+```html
+<form method="post" action="/upload" enctype="multipart/form-data">
+    <input type="file" name="file"><br>
+    <input type="submit" value="提交">
+</form>
+```
+
+
+
+
+
+
+
+#### 2.文件上传代码
+
+```java
+/**
+ * 处理文件上传请求
+ * MultipartFile自动封装上传过来的文件
+ *
+ * @return 上传成功, 返回main页面
+ */
+@PostMapping("/upload")
+public String upload(@RequestParam String email,
+                     @RequestParam("userName") String username,
+                     //@RequestPart接收文件上传注解
+                     @RequestPart("headerImg") MultipartFile headerImg,
+                     @RequestPart("photos") MultipartFile[] photos) throws IOException {
+    log.info("上传的信息:email={},username={},headerImg={},photos={}",
+            email, username, headerImg.getSize(), photos.length);
+    if (!headerImg.isEmpty()) {
+        //保存到文件服务器,oss服务器
+        String originalFilename = headerImg.getOriginalFilename();
+        headerImg.transferTo(new File("C:\\Users\\Kou\\Desktop\\1\\" + originalFilename));
+    }
+    if (photos.length > 0) {
+        for (MultipartFile photo : photos) {
+            if (!photo.isEmpty()) {
+                String originalFilename = photo.getOriginalFilename();
+                photo.transferTo(new File("C:\\Users\\Kou\\Desktop\\1\\" + originalFilename));
+            }
+        }
+    }
+    return "main";
+}
+```
+
+
+
+```yaml
+spring:
+  #修改文件上传设置
+  servlet:
+    multipart:
+      #单个文件的最大大小
+      max-file-size: 10MB
+      #整体上传文件大小
+      max-request-size: 100MB
+```
+
+
+
+
+
+
+
+
+
+#### 3.自动配置原理
+
+文件上传自动配置类 MultipartAutoConfiguration
+
++ 自动配置好了StandardServletMultipartResolver【文件上传解析器】
+
++ 原理步骤
+
+  + **1请求进来使用文件上传解析器判断（**isMultipart**）并封装（**resolveMultipart，**返回**MultipartHttpServletRequest**）文件上传请求**
+  + **参数解析器来解析请求中的文件内容封装成MultipartFile**
+  + **将request中文件信息封装为一个Map；**MultiValueMap<String, MultipartFile>
+
+  **FileCopyUtils**。实现文件流的拷贝
+
+![image-20210917152246589](SpringBoot核心技术.assets/image-20210917152246589.png)
+
+
+
 
 
 ### 8.异常处理
 
+#### 1.默认规则
+
+- 默认情况下，Spring Boot提供`/error`处理所有错误的映射
+- 对于机器客户端，它将生成JSON响应，其中包含错误，HTTP状态和异常消息的详细信息。对于浏览器客户端，响应一个“ whitelabel”错误视图，以HTML格式呈现相同的数据
+
+![image-20210917153725081](SpringBoot核心技术.assets/image-20210917153725081.png)
 
 
-### 9.原生组件注入
+
+![image-20210917153922715](SpringBoot核心技术.assets/image-20210917153922715.png)
+
+
+
+- 要对其进行自定义，添加`View解析为`error`
+  `
+- 要完全替换默认行为，可以实现 `ErrorController `并注册该类型的Bean定义，或添加`ErrorAttributes类型的组件`以使用现有机制但替换其内容。
+
+- error/下的4xx，5xx页面会被自动解析； 
+
+![image-20210917154233251](SpringBoot核心技术.assets/image-20210917154233251.png)
+
+![image-20210917154318195](SpringBoot核心技术.assets/image-20210917154318195.png)
+
+
+
+
+
+#### 2.==定制错误处理逻辑==
+
+- **自定义错误页**
+
+- - error/404.html   error/5xx.html；有精确的错误状态码页面就匹配精确，没有就找 4xx.html；如果都没有就触发白页
+
++ **@ControllerAdvice+@ExceptionHandler**处理全局异常；底层是ExceptionHandlerExceptionResolver支持的
+
+  ```java
+  /**
+   * 处理整个Web Controller的异常
+   *
+   * @author KouChaoJie
+   * @date: 2021/9/17 21:32
+   */
+  @Slf4j
+  @ControllerAdvice
+  public class GlobalExceptionHandler {
+      /**
+       * 处理数学运算异常和空指针异常的处理器
+       *
+       * @return login
+       */
+      @ExceptionHandler({ArithmeticException.class, NullPointerException.class})
+      public String handleArithmeticException(Exception e) {
+          log.info("异常是:{}", e);
+          //视图地址
+          return "login";
+      }
+  }
+  ```
+
++ **@ResponseStatus+自定义异常**
+
+  ```java
+  @ResponseStatus(value = HttpStatus.FORBIDDEN, reason = "用户数量太多")
+  public class UserTooManyException extends RuntimeException {
+      public UserTooManyException() {
+      }
+      public UserTooManyException(String message) {
+          super(message);
+      }
+  }
+  ```
+
+  ![image-20210917215334555](SpringBoot核心技术.assets/image-20210917215334555.png)
+
+  ![image-20210917215402722](SpringBoot核心技术.assets/image-20210917215402722.png)
+
++ 自定义实现**HandlerExceptionResolver**处理异常;可以作为默认的全局异常处理规则
+
++ response.sendError(HttpServletResponse.**SC_BAD_REQUEST**, ex.getMessage()); 
+
++ - ![image-20210917221023490](SpringBoot核心技术.assets/image-20210917221023490.png)
+
++ **ErrorViewResolver**  实现自定义处理异常；
+
+- + response.sendError 。error请求就会转给controller
+
+- + 你的异常没有任何人能处理。tomcat底层 response.sendError。error请求就会转给controller
+
+- + **basicErrorController 要去的页面地址是** **ErrorViewResolver**  ；
+
+
+
+
+
+
+
+#### 3.异常处理自动配置原理
+
++ ErrorMvcAutoConfiguration自动配置异常处理规则
+
+  + 容器中的组件：类型：DefaultErrorAttributes-->id：errorAttributes
+
+    + ```java
+      public class DefaultErrorAttributes implements ErrorAttributes, HandlerExceptionResolver, Ordered {
+      ```
+
+- - + **DefaultErrorAttributes**：定义错误页面中可以包含哪些数据。
+
+- 容器中的组件：类型：BasicErrorController---->id：basicErrorController（json+白页 适配响应）
+
+  + 处理默认`/error`的请求
+
+    ![image-20210917161416108](SpringBoot核心技术.assets/image-20210917161416108.png)
+
+  + 容器中有组件View->id：error；（响应默认错误页）
+
+    ![image-20210917161325253](SpringBoot核心技术.assets/image-20210917161325253.png)
+
+    ![image-20210917162202587](SpringBoot核心技术.assets/image-20210917162202587.png)
+
+  + 容器中组件：**BeanNameViewResolver**视图解析器：按照返回的视图名作为组件的id去容器中找view对象
+
+如果想要返回页面，就会找error视图。（默认是一个白页）
+
+- - **容器中的组件：**类型：**DefaultErrorViewResolver -> id：**conventionErrorViewResolver
+
+- - - 如果发生错误，会以HTTP的状态码 作为视图页地址（viewName），找到真正的页面
+    - error/404、5xx.html
+
+
+
+写出去json
+
+![image-20210917162437355](SpringBoot核心技术.assets/image-20210917162437355.png)
+
+
+
+错误页
+
+![image-20210917162608619](SpringBoot核心技术.assets/image-20210917162608619.png)
+
+
+
+
+
+
+
+
+
+#### 4.异常处理步骤流程
+
+源码实在看不下去了。累了。
+
+- - 
+
+
+
+
+
+### 9.Web原生组件注入（Servlet,Filter,Listener）
+
+#### 1.使用Servlet API
+
+```java
+//指定原生Servlet组件都放在哪  在主程序中标
+@ServletComponentScan(basePackages = "com.kou.admin.servlet")
+
+//表明这个servlet处理的地址。效果：直接响应，没有经过Spring的拦截器？
+@WebServlet(urlPatterns = "/my")
+extends HttpServlet 
+
+@WebFilter(urlPatterns = {"/css/*","/images/*"})
+extends HttpServlet
+    
+@WebListener
+implements ServletContextListener
+
+```
+
+推荐使用这种方式
+
+
+
+DispatchServlet 如何注册进来
+
+- 容器中自动配置了  DispatcherServlet  属性绑定到 WebMvcProperties；对应的配置文件配置项是 **spring.mvc。**
+- **通过** **ServletRegistrationBean**<DispatcherServlet> 把 DispatcherServlet  配置进来。
+
+- 默认映射的是 / 路径。
+
+
+
+![image-20210918142143802](SpringBoot核心技术.assets/image-20210918142143802.png)
+
+
+
+
+
+#### 2.使用RegistrationBean
+
+```java
+package com.kou.admin.servlet;
+
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.Arrays;
+
+/**
+ * @author KouChaoJie
+ * @date: 2021/9/18 13:45
+ */
+@Configuration
+public class MyRegistConfig {
+    @Bean
+    public ServletRegistrationBean myServlet() {
+        MyServlet myServlet = new MyServlet();
+
+        return new ServletRegistrationBean(myServlet, "/my", "/my02");
+    }
+
+    @Bean
+    public FilterRegistrationBean myFilter() {
+        MyFilter myFilter = new MyFilter();
+        FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(myFilter);
+        filterRegistrationBean.setUrlPatterns(Arrays.asList("/my", "/css"));
+        return filterRegistrationBean;
+    }
+
+    @Bean
+    public ServletListenerRegistrationBean myListener(){
+        MyServletContextListener myServletContextListener = new MyServletContextListener();
+        return new ServletListenerRegistrationBean(myServletContextListener);
+    }
+}
+```
+
+
+
+
 
 
 
 ### 10.嵌入式Web容器
 
+![image-20210918142341601](SpringBoot核心技术.assets/image-20210918142341601.png)
+
+源码以后再看
+
+
+
+
+
 
 
 ### 11.定制化原理
+
+**场景starter** **- xxxxAutoConfiguration - 导入xxx组件 - 绑定xxxProperties --** **绑定配置文件项** 
+
+
+
+
+
+- 修改配置文件；
+- **xxxxxCustomizer；**
+
+- **编写自定义的配置类   xxxConfiguration；+** **@Bean替换、增加容器中默认组件；视图解析器** 
+- **Web应用 编写一个配置类实现** **WebMvcConfigurer 即可定制化web功能；+ @Bean给容器中再扩展一些组件**
+
+```java
+@Configuration
+public class AdminWebConfig implements WebMvcConfigurer
+```
+
+- @EnableWebMvc + WebMvcConfigurer —— @Bean  
+
+  可以全面接管SpringMVC，所有规则全部自己重新配置； 实现定制和扩展功能
+
+
+
+
+
+---------------------------
+
+
+
+
+
+
+
+
+
+
+
+## 3.数据访问
+
+### 1.SQL
+
+#### 1.数据源的自动配置
+
+##### 1.JDBC场景
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jdbc</artifactId>
+</dependency>
+```
+
+![image-20210918145135935](SpringBoot核心技术.assets/image-20210918145135935.png)
+
+数据库驱动？
+
+为什么导入JDBC场景，官方不导入驱动？官方不知道我们接下要操作什么数据库。
+
+数据库版本和驱动版本对应
+
+
+
+##### 2.分析自动配置
+
+
+
++ 修改配置项
+
++ ```yaml
+  spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/shop?serverTimezone=GMT%2B8&useSSL=false&useUnicode=true&characterEncoding=utf8
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  ```
+
+
+
++ 测试
+
+  ```java
+  @Slf4j
+  @SpringBootTest
+  class Boot05WebAdminApplicationTests {
+      @Autowired
+      JdbcTemplate jdbcTemplate;
+      @Test
+      void contextLoads() {
+          Long aLong = jdbcTemplate.queryForObject("select count(*) from account", Long.class);
+          log.info("记录总数:{}",aLong);
+      }
+  }
+  ```
+
+
+
+
+
+
+
+#### 2.使用Druid数据源
+
+```java
+<!--druid -->
+<dependency>
+    <groupId>com.alibaba</groupId>
+    <artifactId>druid</artifactId>
+    <version>1.2.6</version>
+</dependency>
+```
+
+StatViewServlet的用途包括：
+
+提供监控信息展示的html页面
+
+提供监控信息的JSON API
+
+用于统计监控信息；如SQL监控、URI监控
+
++ starter启动
+
+  ```xml
+  <dependency>
+      <groupId>com.alibaba</groupId>
+      <artifactId>druid-spring-boot-starter</artifactId>
+      <version>1.1.17</version>
+  </dependency>
+  ```
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/db_account
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.jdbc.Driver
+
+    druid:
+      aop-patterns: com.atguigu.admin.*  #监控SpringBean
+      filters: stat,wall     # 底层开启功能，stat（sql监控），wall（防火墙）
+
+      stat-view-servlet:   # 配置监控页功能
+        enabled: true
+        login-username: admin
+        login-password: admin
+        resetEnable: false
+
+      web-stat-filter:  # 监控web
+        enabled: true
+        urlPattern: /*
+        exclusions: '*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*'
+
+
+      filter:
+        stat:    # 对上面filters里面的stat的详细配置
+          slow-sql-millis: 1000
+          logSlowSql: true
+          enabled: true
+        wall:
+          enabled: true
+          config:
+            drop-table-allow: false
+```
+
+
+
+
+
+
+
+#### 3.整合MyBatis
+
+#### 1.配置模式
+
+```xml
+<!--mybatis-->
+<dependency>
+    <groupId>org.mybatis.spring.boot</groupId>
+    <artifactId>mybatis-spring-boot-starter</artifactId>
+    <version>2.2.0</version>
+</dependency>
+```
+
+
+
++ 全局配置文件
++ 自动配置好了
++ SqlSession：自动配置了 **SqlSessionTemplate 组合了SqlSession**
+
+- @Import(**AutoConfiguredMapperScannerRegistrar**.**class**）；
+- Mapper： 只要我们写的操作MyBatis的接口标了 **@Mapper 就会被自动扫描进来**
+
+
+
++ 指定配置文件
+
+```yaml
+#配置mybatis规则
+mybatis:
+  #config-location: classpath:mybatis/mybatis-config.xml
+  mapper-locations: classpath:mybatis/mapper/*.xml
+  configuration:
+  map-underscore-to-camel-case: true
+   可以不写全局配置文件，所有全局配置文件的配置都放在configuration配置项中即可
+   
+   
+  
+Mapper接口---->XML文件
+@Mapper
+public interface AccountMapper {
+    Account getAccount(Long id);
+}
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kou.admin.mapper.AccountMapper">
+    <!--通过id查询-->
+    <select id="getAccount" resultType="com.kou.admin.entity.Account">
+        SELECT *
+        FROM account
+        WHERE id = #{id}
+    </select>
+</mapper>
+```
+
+
+
+- 导入mybatis官方starter
+- 编写mapper接口。标@Mapper注解
+
+- 编写sql映射文件并绑定mapper接口
+- 在application.yaml中指定Mapper配置文件的位置，以及指定全局配置文件的信息 （建议；**配置在mybatis.configuration**）
+
+
+
+
+
+
+
+
+
+#### 2.注解模式
+
+```java
+@Mapper
+public interface CityMapper {
+
+    @Select("select * from city where id=#{id}")
+    public City getById(Long id);
+
+}
+```
+
+
+
+
+
+#### 3.混合模式
+
+```java
+/**
+ * @author KouChaoJie
+ * @date: 2021/9/19 10:47
+ */
+@Mapper
+public interface CityMapper {
+    @Select("select * from city where id=#{id}")
+    City getById(Long id);
+
+
+    void insert(City city);
+}
+```
+
+![image-20210919111119927](SpringBoot核心技术.assets/image-20210919111119927.png)
+
+![image-20210919111336851](SpringBoot核心技术.assets/image-20210919111336851.png)
+
+
+
+最佳实战:
+
++ 引入mybatis-stater
++ 配置application.yml，指定mapper-location位置即可
++ 编写mapper接口，并标注mapper注解
++ 简单方式直接注解方式
++ 复杂方法编写mapper.xml进行绑定映射
+
+
+
+
+
+
+
+#### 4.整合MyBatis-Plus完成CRUD
+
+https://baomidou.com/guide/quick-start.html#%E5%BC%80%E5%A7%8B%E4%BD%BF%E7%94%A8
+
+MyBatis-Plus（简称 MP）是一个 MyBatis 的增强工具，在 MyBatis 的基础上只做增强不做改变，为简化开发、提高效率而生。
+mybatis plus 官网
+建议安装 MybatisX 插件 
+
+
+
+```xml
+<!--mybatis-plus-->
+<dependency>
+    <groupId>com.baomidou</groupId>
+    <artifactId>mybatis-plus-boot-starter</artifactId>
+    <version>3.4.3.3</version>
+</dependency>
+```
+
+- MybatisPlusAutoConfiguration 配置类，MybatisPlusProperties 配置项绑定。**mybatis-plus：xxx 就是对**mybatis-plus的定制
+- **SqlSessionFactory 自动配置好。底层是容器中默认的数据源**
+
+- **mapperLocations 自动配置好的。有默认值。**classpath*:/mapper/**/\*.xml；任意包的类路径下的所有mapper文件夹下任意路径下的所有xml都是sql映射文件。  建议以后sql映射文件，放在 类路径下的mapper下*
+- **容器中也自动配置好了** **SqlSessionTemplate**
+
+- **@Mapper 标注的接口也会被自动扫描；建议直接** @MapperScan(**"com.kouadmin.mapper"**) 批量扫描就行
+
+
+
+
+
+MP优点：
+
++ 只需要mapper继承BaseMapper就可以拥有CRUD能力
+
+
+
+```java
+/**
+ * @author KouChaoJie
+ * @date: 2021/9/15 23:19
+ */
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+//@TableName可以指定对应的是数据库中的哪个表
+public class User {
+    /**
+     * 所有属性都应该在数据库中有
+     * -@TableField 代表该字段在表中不存在
+     */
+    @TableField(exist = false)
+    private String userName;
+    @TableField(exist = false)
+    private String password;
+
+    /**
+     * 以下是数据库字段
+     */
+    private Long id;
+    private String name;
+    private Integer age;
+    private String email;
+}
+
+
+/**
+ * @author KouChaoJie
+ * @date: 2021/9/19 11:43
+ */
+@Mapper
+public interface UserMapper extends BaseMapper<User> {
+
+}
+
+@Test
+void testUserMapper() {
+    User user = userMapper.selectById(1L);
+    log.info("用户信息:{}", user);
+}
+```
+
+
+
+##### CRUD
+
+```java
+@Service
+public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements UserService {
+
+
+}
+
+public interface UserService extends IService<User> {
+
+}
+```
+
+
+
+```java
+@GetMapping("/dynamic_table")
+public String dynamicTable(@RequestParam(value = "pn", defaultValue = "1") Integer pn, Model model) {
+    //从数据库中查出user表所有信息进行展示
+    List<User> userList = userService.list();
+    //model.addAttribute("users", userList);
+    //分页查询
+    Page<User> userPage = new Page<>(pn, 2);
+    //分页查询的结果
+    Page<User> page = userService.page(userPage, null);
+    model.addAttribute("page", page);
+    return "table/dynamic_table";
+}
+```
+
+```java
+@Configuration
+public class MyBatisConfig {
+    /**
+     * 新的分页插件,一缓和二缓遵循mybatis的规则,
+     * 需要设置 MybatisConfiguration#useDeprecatedExecutor = false
+     * 避免缓存出现问题(该属性会在旧插件移除后一同移除)
+     */
+    @Bean
+    public MybatisPlusInterceptor mybatisPlusInterceptor() {
+        MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+        PaginationInnerInterceptor paginationInnerInterceptor = new PaginationInnerInterceptor(DbType.MYSQL);
+        interceptor.addInnerInterceptor(paginationInnerInterceptor);
+        return interceptor;
+    }
+}
+```
+
+
+
+### 2.NoSQL
+
+#### 1.Redis自动配置
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-redis</artifactId>
+</dependency>
+```
+
+- RedisAutoConfiguration 自动配置类。RedisProperties 属性类 --> **spring.redis.xxx是对redis的配置**
+- 连接工厂是准备好的。**Lettuce**ConnectionConfiguration、**Jedis**ConnectionConfiguration
+
+- **自动注入了RedisTemplate**<**Object**, **Object**> ： xxxTemplate；
+- **自动注入了StringRedisTemplate；k：v都是String**
+
+- **key：value**
+- **底层只要我们使用** **StringRedisTemplate、****RedisTemplate就可以操作redis**
+
+```yaml
+spring:
+  redis:
+    #redis服务器地址
+    host: 106.54.177.36
+    #连接端口号
+    port: 6379
+    password: hPn_vqR84
+    #切换成jedis
+    client-type: jedis
+```
+
+```xml
+<!--导入jedis-->
+<dependency>
+    <groupId>redis.clients</groupId>
+    <artifactId>jedis</artifactId>
+</dependency>
+```
+
+```java
+@Test
+void testRedis() {
+    //设置值到redis
+    redisTemplate.opsForValue().set("kou", "k");
+    //从redis获取值
+    System.out.println(redisTemplate.opsForValue().get("kou"));
+}
+```
+
+
+
+
+
+
+
++ redis统计每个uri访问次数
+
+  + 配置拦截器
+
+  ```java
+  /**
+   * @author KouChaoJie
+   * @date: 2021/9/19 16:16
+   */
+  @Component
+  public class RedisUrlCountInterceptor implements HandlerInterceptor {
+      @Autowired
+      StringRedisTemplate redisTemplate;
+      @Override
+      public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+          String requestURI = request.getRequestURI();
+          //默认每次访问当前uri就会计数+1
+          redisTemplate.opsForValue().increment(requestURI);
+          return true;
+      }
+  }
+  ```
+
+```java
+/**
+ * Admin配置类
+ * 定制SpringMVC的一些功能
+ *
+ * @author KouChaoJie
+ * @date: 2021/9/16 21:40
+ */
+@Configuration
+public class AdminWebConfig implements WebMvcConfigurer {
+    /**
+     * Filter,Interceptor用哪个好
+     * filter是servlet定义的原生组件。好处:脱离spring也能使用
+     * Interceptor是spring定义的接口。可以使用spring的自动装配等功能
+     */
+    @Autowired
+    RedisUrlCountInterceptor redisUrlCountInterceptor;
+    /**
+     * 添加拦截器
+     * 设置拦截器逻辑
+     *
+     * @param registry 拦截器注册中心
+     */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+
+        registry.addInterceptor(redisUrlCountInterceptor)
+                .addPathPatterns("/**")
+                .excludePathPatterns("/", "/login", "/css/**", "/fonts/**", "/images/**", "/js/**");
+    }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+## 4.单元测试
+
+### 1.JUnit5
+
+**Spring Boot 2.2.0 版本开始引入 JUnit 5 作为单元测试默认库**
+
+作为最新版本的JUnit框架，JUnit5与之前版本的Junit框架有很大的不同。由三个不同子项目的几个不同模块组成。
+
+**JUnit 5 = JUnit Platform + JUnit Jupiter + JUnit Vintage**
+
+**JUnit Platform**: Junit Platform是在JVM上启动测试框架的基础，不仅支持Junit自制的测试引擎，其他测试引擎也都可以接入。
+
+**JUnit Jupiter**: JUnit Jupiter提供了JUnit5的新的编程模型，是JUnit5新特性的核心。内部 包含了一个**测试引擎**，用于在Junit Platform上运行。
+
+**JUnit Vintage**: 由于JUint已经发展多年，为了照顾老的项目，JUnit Vintage提供了兼容JUnit4.x,Junit3.x的测试引擎。
+
+![image-20210919164009274](SpringBoot核心技术.assets/image-20210919164009274.png)
+
+注意：
+
+**SpringBoot 2.4 以上版本移除了默认对** **Vintage 的依赖。如果需要兼容junit4需要自行引入（不能使用junit4的功能 @Test****）**
+
+**JUnit 5’s Vintage Engine Removed from** `spring-boot-starter-test,如果需要继续兼容junit4需要自行引入vintage`
+
+```xml
+<dependency>
+    <groupId>org.junit.vintage</groupId>
+    <artifactId>junit-vintage-engine</artifactId>
+    <scope>test</scope>
+    <exclusions>
+        <exclusion>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest-core</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+```
+
+
+
+
+
+SpringBoot整合Junit以后。
+
+- 编写测试方法：@Test标注（注意需要使用junit5版本的注解）
+- Junit类具有Spring的功能，@Autowired、比如 @Transactional 标注测试方法，测试完成后自动回滚
+
+
+
+### 2.常用注解
+
+JUnit5的注解与JUnit4的注解有所变化
+
+https://junit.org/junit5/docs/current/user-guide/#writing-tests-annotations
+
+- **@Test :**表示方法是测试方法。但是与JUnit4的@Test不同，他的职责非常单一不能声明任何属性，拓展的测试将会由Jupiter提供额外测试
+- **@ParameterizedTest :**表示方法是参数化测试，下方会有详细介绍
+
+- **@RepeatedTest :**表示方法可重复执行，下方会有详细介绍
+- **@DisplayName :**为测试类或者测试方法设置展示名称
+
+- **@BeforeEach :**表示在每个单元测试之前执行
+- **@AfterEach :**表示在每个单元测试之后执行
+
+- **@BeforeAll :**表示在所有单元测试之前执行
+- **@AfterAll :**表示在所有单元测试之后执行
+
+- **@Tag :**表示单元测试类别，类似于JUnit4中的@Categories
+- **@Disabled :**表示测试类或测试方法不执行，类似于JUnit4中的@Ignore
+
+- **@Timeout :**表示测试方法运行如果超过了指定时间将会返回错误
+- **@ExtendWith :**为测试类或测试方法提供扩展类引用
+
+
+
+
+
+### 3.断言（Assertion）
+
+断言（assertions）是测试方法中的核心部分，用来对测试需要满足的条件进行验证。**这些断言方法都是 org.junit.jupiter.api.Assertions 的静态方法**。JUnit 5 内置的断言可以分成如下几个类别：
+
+**检查业务逻辑返回的数据是否合理。**
+
+**所有的测试运行结束以后，会有一个详细的测试报告；**
+
+
+
+#### 1.简单断言
+
+用来对单个值进行简单的验证。如：
+
+| 方法            | 说明                                 |
+| --------------- | ------------------------------------ |
+| assertEquals    | 判断两个对象或两个原始类型是否相等   |
+| assertNotEquals | 判断两个对象或两个原始类型是否不相等 |
+| assertSame      | 判断两个对象引用是否指向同一个对象   |
+| assertNotSame   | 判断两个对象引用是否指向不同的对象   |
+| assertTrue      | 判断给定的布尔值是否为 true          |
+| assertFalse     | 判断给定的布尔值是否为 false         |
+| assertNull      | 判断给定的对象引用是否为 null        |
+| assertNotNull   | 判断给定的对象引用是否不为 null      |
+
+```java
+@Test
+@DisplayName("simple assertion")
+public void simple() {
+     assertEquals(3, 1 + 2, "simple math");
+     assertNotEquals(3, 1 + 1);
+
+     assertNotSame(new Object(), new Object());
+     Object obj = new Object();
+     assertSame(obj, obj);
+
+     assertFalse(1 > 2);
+     assertTrue(1 < 2);
+
+     assertNull(null);
+     assertNotNull(new Object());
+}
+```
+
+
+
+
+
+#### 2.数组断言
+
+通过 assertArrayEquals 方法来判断两个对象或原始类型的数组是否相等
+
+```java
+@Test
+@DisplayName("array assertion")
+public void array() {
+ assertArrayEquals(new int[]{1, 2}, new int[] {1, 2});
+}
+```
+
+
+
+#### 3.组合断言
+
+assertAll 方法接受多个 org.junit.jupiter.api.Executable 函数式接口的实例作为要验证的断言，可以通过 lambda 表达式很容易的提供这些断言
+
+```java
+@Test
+@DisplayName("assert all")
+public void all() {
+ assertAll("Math",
+    () -> assertEquals(2, 1 + 1),
+    () -> assertTrue(1 > 0)
+ );
+}
+```
+
+
+
+
+
+#### 4.异常断言
+
+在JUnit4时期，想要测试方法的异常情况时，需要用**@Rule**注解的ExpectedException变量还是比较麻烦的。而JUnit5提供了一种新的断言方式**Assertions.assertThrows()** ,配合函数式编程就可以进行使用。
+
+```java
+@Test
+@DisplayName("异常测试")
+public void exceptionTest() {
+    ArithmeticException exception = Assertions.assertThrows(
+           //扔出断言异常
+            ArithmeticException.class, () -> System.out.println(1 % 0));
+
+}
+```
+
+
+
+
+
+#### 5.超时断言
+
+Junit5还提供了**Assertions.assertTimeout()** 为测试方法设置了超时时间
+
+```java
+@Test
+@DisplayName("超时测试")
+public void timeoutTest() {
+    //如果测试方法时间超过1s将会异常
+    Assertions.assertTimeout(Duration.ofMillis(1000), () -> Thread.sleep(500));
+}
+```
+
+
+
+
+
+#### 6.快速失败
+
+通过 fail 方法直接使得测试失败
+
+```java
+@Test
+@DisplayName("fail")
+public void shouldFail() {
+ fail("This should fail");
+}
+```
+
+
+
+
+
+### 4.前置条件（assumptions）
+
+JUnit 5 中的前置条件（**assumptions【假设】**）类似于断言，不同之处在于**不满足的断言会使得测试方法失败**，而不满足的**前置条件只会使得测试方法的执行终止**。前置条件可以看成是测试方法执行的前提，当该前提不满足时，就没有继续执行的必要。
+
+```java
+@DisplayName("前置条件")
+public class AssumptionsTest {
+ private final String environment = "DEV";
+ 
+ @Test
+ @DisplayName("simple")
+ public void simpleAssume() {
+    assumeTrue(Objects.equals(this.environment, "DEV"));
+    assumeFalse(() -> Objects.equals(this.environment, "PROD"));
+ }
+ 
+ @Test
+ @DisplayName("assume then do")
+ public void assumeThenDo() {
+    assumingThat(
+       Objects.equals(this.environment, "DEV"),
+       () -> System.out.println("In DEV")
+    );
+ }
+}
+```
+
+assumeTrue 和 assumFalse 确保给定的条件为 true 或 false，不满足条件会使得测试执行终止。assumingThat 的参数是表示条件的布尔值和对应的 Executable 接口的实现对象。只有条件满足时，Executable 对象才会被执行；当条件不满足时，测试执行并不会终止。
+
+
+
+### 5.嵌套测试
+
+JUnit 5 可以通过 Java 中的内部类和@Nested 注解实现嵌套测试，从而可以更好的把相关的测试方法组织在一起。在内部类中可以使用@BeforeEach 和@AfterEach 注解，而且嵌套的层次没有限制。
+
+```java
+@DisplayName("A stack")
+class TestingAStackDemo {
+
+    Stack<Object> stack;
+
+    @Test
+    @DisplayName("is instantiated with new Stack()")
+    void isInstantiatedWithNew() {
+        new Stack<>();
+    }
+
+    @Nested
+    @DisplayName("when new")
+    class WhenNew {
+
+        @BeforeEach
+        void createNewStack() {
+            stack = new Stack<>();
+        }
+
+        @Test
+        @DisplayName("is empty")
+        void isEmpty() {
+            assertTrue(stack.isEmpty());
+        }
+
+        @Test
+        @DisplayName("throws EmptyStackException when popped")
+        void throwsExceptionWhenPopped() {
+            assertThrows(EmptyStackException.class, stack::pop);
+        }
+
+        @Test
+        @DisplayName("throws EmptyStackException when peeked")
+        void throwsExceptionWhenPeeked() {
+            assertThrows(EmptyStackException.class, stack::peek);
+        }
+
+        @Nested
+        @DisplayName("after pushing an element")
+        class AfterPushing {
+
+            String anElement = "an element";
+
+            @BeforeEach
+            void pushAnElement() {
+                stack.push(anElement);
+            }
+
+            @Test
+            @DisplayName("it is no longer empty")
+            void isNotEmpty() {
+                assertFalse(stack.isEmpty());
+            }
+
+            @Test
+            @DisplayName("returns the element when popped and is empty")
+            void returnElementWhenPopped() {
+                assertEquals(anElement, stack.pop());
+                assertTrue(stack.isEmpty());
+            }
+
+            @Test
+            @DisplayName("returns the element when peeked but remains not empty")
+            void returnElementWhenPeeked() {
+                assertEquals(anElement, stack.peek());
+                assertFalse(stack.isEmpty());
+            }
+        }
+    }
+}
+```
+
+
+
+
+
+### 6.参数化测试
+
+参数化测试是JUnit5很重要的一个新特性，它使得用不同的参数多次运行测试成为了可能，也为我们的单元测试带来许多便利。
+
+
+
+利用**@ValueSource**等注解，指定入参，我们将可以使用不同的参数进行多次单元测试，而不需要每新增一个参数就新增一个单元测试，省去了很多冗余代码。
+
+
+
+**@ValueSource**: 为参数化测试指定入参来源，支持八大基础类以及String类型,Class类型
+
+**@NullSource**: 表示为参数化测试提供一个null的入参
+
+**@EnumSource**: 表示为参数化测试提供一个枚举入参
+
+**@CsvFileSource**：表示读取指定CSV文件内容作为参数化测试入参
+
+**@MethodSource**：表示读取指定方法的返回值作为参数化测试入参(注意方法返回需要是一个流)
+
+```java
+@ParameterizedTest
+@ValueSource(strings = {"one", "two", "three"})
+@DisplayName("参数化测试1")
+public void parameterizedTest1(String string) {
+    System.out.println(string);
+    Assertions.assertTrue(StringUtils.isNotBlank(string));
+}
+
+
+@ParameterizedTest
+@MethodSource("method")    //指定方法名
+@DisplayName("方法来源参数")
+public void testWithExplicitLocalMethodSource(String name) {
+    System.out.println(name);
+    Assertions.assertNotNull(name);
+}
+
+static Stream<String> method() {
+    return Stream.of("apple", "banana");
+}
+```
+
+
+
+
+
+
+
+## 5.指标监控
+
+
+
+未来每一个微服务在云上部署以后，我们都需要对其进行监控、追踪、审计、控制等。SpringBoot就抽取了Actuator场景，使得我们每个微服务快速引用即可获得生产级别的应用监控、审计等功能。
+
+- 引入场景
+
+  ```xml
+          <dependency>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-starter-actuator</artifactId>
+          </dependency>
+  ```
+
+  
+
+- 访问 http://localhost:8080/actuator/**
+
+- 暴露所有监控信息为HTTP
+
+```yaml
+management:
+  endpoints:
+    enabled-by-default: true #暴露所有端点信息
+    web:
+      exposure:
+        include: '*'  #以web方式暴露
+```
+
+
+
+- 测试
+
+http://localhost:8080/actuator/beans
+
+http://localhost:8080/actuator/configprops
+
+http://localhost:8080/actuator/metrics
+
+http://localhost:8080/actuator/metrics/jvm.gc.pause
+
+[http://localhost:8080/actuator/](http://localhost:8080/actuator/metrics)endpointName/detailPath
+。。。。。。
+
+
+
+
+
+
+
+### 1.Actuator Endpoint
+
+#### 1.最常使用的端点
+
+| ID                 | 描述                                                         |
+| ------------------ | ------------------------------------------------------------ |
+| `auditevents`      | 暴露当前应用程序的审核事件信息。需要一个`AuditEventRepository组件`。 |
+| `beans`            | 显示应用程序中所有Spring Bean的完整列表。                    |
+| `caches`           | 暴露可用的缓存。                                             |
+| `conditions`       | 显示自动配置的所有条件信息，包括匹配或不匹配的原因。         |
+| `configprops`      | 显示所有`@ConfigurationProperties`。                         |
+| `env`              | 暴露Spring的属性`ConfigurableEnvironment`                    |
+| `flyway`           | 显示已应用的所有Flyway数据库迁移。 需要一个或多个`Flyway`组件。 |
+| `health`           | 显示应用程序运行状况信息。                                   |
+| `httptrace`        | 显示HTTP跟踪信息（默认情况下，最近100个HTTP请求-响应）。需要一个`HttpTraceRepository`组件。 |
+| `info`             | 显示应用程序信息。                                           |
+| `integrationgraph` | 显示Spring `integrationgraph` 。需要依赖`spring-integration-core`。 |
+| `loggers`          | 显示和修改应用程序中日志的配置。                             |
+| `liquibase`        | 显示已应用的所有Liquibase数据库迁移。需要一个或多个`Liquibase`组件。 |
+| `metrics`          | 显示当前应用程序的“指标”信息。                               |
+| `mappings`         | 显示所有`@RequestMapping`路径列表。                          |
+| `scheduledtasks`   | 显示应用程序中的计划任务。                                   |
+| `sessions`         | 允许从Spring Session支持的会话存储中检索和删除用户会话。需要使用Spring Session的基于Servlet的Web应用程序。 |
+| `shutdown`         | 使应用程序正常关闭。默认禁用。                               |
+| `startup`          | 显示由`ApplicationStartup`收集的启动步骤数据。需要使用`SpringApplication`进行配置`BufferingApplicationStartup`。 |
+| `threaddump`       | 执行线程转储。                                               |
+
+
+
+如果您的应用程序是Web应用程序（Spring MVC，Spring WebFlux或Jersey），则可以使用以下附加端点：
+
+| ID           | 描述                                                         |
+| ------------ | ------------------------------------------------------------ |
+| `heapdump`   | 返回`hprof`堆转储文件。                                      |
+| `jolokia`    | 通过HTTP暴露JMX bean（需要引入Jolokia，不适用于WebFlux）。需要引入依赖`jolokia-core`。 |
+| `logfile`    | 返回日志文件的内容（如果已设置`logging.file.name`或`logging.file.path`属性）。支持使用HTTP`Range`标头来检索部分日志文件的内容。 |
+| `prometheus` | 以Prometheus服务器可以抓取的格式公开指标。需要依赖`micrometer-registry-prometheus`。 |
+
+最常用的Endpoint
+
+- **Health：健康状况**
+- **Metrics：运行时指标**
+
+- **Loggers：日志记录**
+
+
+
+
+
+
+
+#### 2.Health Endpoint
+
+健康检查端点，我们一般用于在云平台，平台会定时的检查应用的健康状况，我们就需要Health Endpoint可以为平台返回当前应用的一系列组件健康状况的集合。
+
+重要的几点：
+
+- health endpoint返回的结果，应该是一系列健康检查后的一个**汇总报告**
+- 很多的健康检查默认已经自动配置好了，比如：数据库、redis等
+
+- 可以很容易的添加自定义的健康检查机制
+
+```yaml
+endpoint:
+  health:
+    show-details: always
+```
+
+![image-20210920212756510](SpringBoot核心技术.assets/image-20210920212756510.png)
+
+
+
+
+
+#### 3.Metrics Endpoint
+
+提供详细的、层级的、空间指标信息，这些信息可以被pull（主动推送）或者push（被动获取）方式得到；
+
+- 通过Metrics对接多种监控系统
+- 简化核心Metrics开发
+
+- 添加自定义Metrics或者扩展已有Metrics
+
+
+
+![image-20210920213008196](SpringBoot核心技术.assets/image-20210920213008196.png)
+
+
+
+
+
+#### 4.管理Endpoints
+
+##### 1.开启与禁用Endpoints
+
+- 默认所有的Endpoint除过shutdown都是开启的。
+- 需要开启或者禁用某个Endpoint。配置模式为  **management.endpoint.**<endpointName>**.enabled = true**
+
+```yaml
+management:
+  endpoint:
+    beans:
+      enabled: true
+```
+
+
+
+![image-20210920213137531](SpringBoot核心技术.assets/image-20210920213137531.png)
+
+
+
+- 或者禁用所有的Endpoint然后手动开启指定的Endpoint
+
+```yaml
+management:
+  endpoints:
+    enabled-by-default: false
+  endpoint:
+    beans:
+      enabled: true
+    health:
+      enabled: true
+```
+
+
+
+
+
+
+
+.................................................
+
+定制Endpoint，Boot Admin Server以后再看
+
+
+
+
+
+
+
+
+
+
+
+## 6.原理解析
+
+### 1.Profile功能
+
+为了方便多环境适配，springboot简化了profile功能。
+
+#### 1.application-profile功能
+
+- 默认配置文件  application.yaml；任何时候都会加载
+- 指定环境配置文件  application-{env}.yaml
+
+- 激活指定环境
+
+- - 配置文件激活
+  - 命令行激活：java -jar xxx.jar --**spring.profiles.active=prod  --person.name=haha**
+
+- - - **修改配置文件的任意值，命令行优先**
+
+- 默认配置与环境配置同时生效
+- 同名配置项，profile配置优先
+
++ 默认配置文件永远生效
+
+
+
+
+
+#### 2.@profile条件装配功能
+
+```java
+@Configuration(proxyBeanMethods = false)
+@Profile("production")
+public class ProductionConfiguration {
+
+    // ...
+
+}
+
+
+
+@Component
+@Profile("test")
+@ConfigurationProperties("person")
+public class Worker implements Person {
+    private String name;
+    private Integer age;
+}
+```
+
+
+
+
+
+#### 3.profile分组
+
+```properties
+spring.profiles.group.production[0]=proddb
+spring.profiles.group.production[1]=prodmq
+
+#激活
+spring.profiles.active=production
+```
+
+
+
+
+
+
+
+### 2.外部化配置
+
+https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config
+
+
+
+1. Default properties (specified by setting `SpringApplication.setDefaultProperties`).
+2. `@PropertySource` annotations on your `@Configuration` classes. Please note that such property sources are not added to the `Environment` until the application context is being refreshed. This is too late to configure certain properties such as `logging.*` and `spring.main.*` which are read before refresh begins.
+
+1. **Config data (such as** `**application.properties**` **files)**
+2. A `RandomValuePropertySource` that has properties only in `random.*`.
+
+1. OS environment variables.
+2. Java System properties (`System.getProperties()`).
+
+1. JNDI attributes from `java:comp/env`.
+2. `ServletContext` init parameters.
+
+1. `ServletConfig` init parameters.
+2. Properties from `SPRING_APPLICATION_JSON` (inline JSON embedded in an environment variable or system property).
+
+1. Command line arguments.
+2. `properties` attribute on your tests. Available on `@SpringBootTest` and the [test annotations for testing a particular slice of your application](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-testing-spring-boot-applications-testing-autoconfigured-tests).
+
+1. `@TestPropertySource` annotations on your tests.
+2. [Devtools global settings properties](https://docs.spring.io/spring-boot/docs/current/reference/html/using-spring-boot.html#using-boot-devtools-globalsettings) in the `$HOME/.config/spring-boot` directory when devtools is active.
+
+
+
+#### 1.外部配置源
+
+常用：**Java属性文件**、**YAML文件**、**环境变量**、**命令行参数**；
+
+
+
+#### 2.配置文件查找位置
+
+(1) classpath 根路径
+
+(2) classpath 根路径下config目录
+
+(3) jar包当前目录
+
+(4) jar包当前目录的config目录
+
+(5) /config子目录的直接子目录
+
+#### 3.配置文件加载顺序：
+
+1. 　当前jar包内部的application.properties和application.yml
+2. 　当前jar包内部的application-{profile}.properties 和 application-{profile}.yml
+
+3. 　引用的外部jar包的application.properties和application.yml
+
+4. 　引用的外部jar包的application-{profile}.properties 和 application-{profile}.yml
+
+
+
+
+
+#### 4.指定环境优先，外部优先，后面的可以覆盖前面的同名配置项
+
+
+
+
+
+
+
+### 3.自定义starter
+
+
+
+
+
+
+
+### 4.SpringBoot原理
+
+
+
+#### 1.SpringBoot启动过程
+

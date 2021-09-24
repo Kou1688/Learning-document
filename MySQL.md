@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS `student`(
 	`address` VARCHAR(100) DEFAULT NULL COMMENT '家庭住址',
 	`email` VARCHAR(50) DEFAULT NULL COMMENT '电子邮箱',
 	PRIMARY KEY(`id`)
-)ENGINE=INNODB DEFAULT CHARSET=utf8
+)ENGINE=INNODB DEFAULT CHARSET=utf8m
 ```
 
 ```sql
@@ -388,6 +388,8 @@ CREATE TABLE IF NOT EXISTS `student`(
 ```
 
 删除有外键关系的表的时候，必须要删除引用别人的表（从表），在删除被引用的表（主表）
+
+alter table 从表 add constraint 外键（形如：FK_从表 _主表） foreign key (从表外键字段) references 主表(主键字段);
 
 ```sql
 -- 创建表的时候没有外键关系
