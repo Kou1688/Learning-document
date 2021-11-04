@@ -5016,7 +5016,7 @@ keyProperty=""将刚才自增的id封装给哪个属性
 
 #### 获取非自增主键的值
 
-```xml
+```sql
 <insert id="insertEmployee2">
     -- sql语句执行之前查询出id赋值给传入employee对象的id属性
     <selectKey order="BEFORE" resultType="integer" keyProperty="id">
@@ -5493,7 +5493,7 @@ and写在前面
 
 where优先
 
-```xml
+```sql
 <select id="getTeacherByCondition" resultMap="teacherMap">
     select id, teacherName, class_name, address, birth_date
     from t_teacher
@@ -5534,7 +5534,7 @@ where优先
 List<Teacher> getTeacherByIdIn(@Param("ids") List<Integer> ids);
 ```
 
-```xml
+```sql
 <!--List<Teacher> getTeacherByIdIn(List<Integer> ids);-->
 <select id="getTeacherByIdIn" resultMap="teacherMap">
     select *
