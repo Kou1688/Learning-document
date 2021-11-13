@@ -1247,3 +1247,404 @@ tips：如果我们没有为命令实现降级逻辑或者在降级处理逻辑�
 
 **SpringCloudAlibaba**
 
+https://cloud.spring.io/spring-cloud-static/spring-cloud-gateway/2.2.1.RELEASE/reference/html/
+
+
+
+## 10.1 概述简介
+
++ 是什么？
+
+  Cloud全家桶中有个很重要的组件就是网关，在1.x版本中都是采用的Zuul网关；
+  但在2.x版本中，zuul的升级一直跳票，SpringCloud最后自己研发了一个网关替代Zuul，
+  那就是SpringCloud Gateway一句话：gateway是原zuul1.x版的替代
+
+  ![image-20211104144719579](SpringCloud+SpringCloudAlibaba.assets/image-20211104144719579.png)
+
+  Gateway是在Spring生态系统之上构建的API网关服务，基于Spring 5，Spring Boot 2和 Project Reactor等技术。
+  Gateway旨在提供一种简单而有效的方式来对API进行路由，以及提供一些强大的过滤器功能， 例如：熔断、限流、重试等
+
+  使用的Webflux中的reactor-netty响应式编程组件，底层使用了Netty通讯框架。
+
+  ![image-20211104145813804](SpringCloud+SpringCloudAlibaba.assets/image-20211104145813804.png)
+
+  + 微服务架构中网关在哪？
+
+    ![image-20211104145832187](SpringCloud+SpringCloudAlibaba.assets/image-20211104145832187.png)
+
+  Spring Cloud Gateway 具有如下特性：
+
+  + 基于Spring Framework 5, Project Reactor 和 Spring Boot 2.0 进行构建；
+    动态路由：能够匹配任何请求属性；
+    可以对路由指定 Predicate（断言）和 Filter（过滤器）；
+    集成Hystrix的断路器功能；
+    集成 Spring Cloud 服务发现功能；
+    易于编写的 Predicate（断言）和 Filter（过滤器）；
+    请求限流功能；
+    支持路径重写
+
+
+
+
+
+
+
+## 10.2 三大核心概念
+
+Gateway是基于==异步非阻塞模型==开发的。
+
++ **路由**
+
+  路由是构建网关的基本模块，它由ID，目标URI，一系列的断言和过滤器组成，如果断言为true则匹配该路由
+
++ **断言**
+
+  开发人员可以匹配HTTP请求中的所有内容(例如请求头或请求参数)，如果请求与断言相匹配则进行路由
+
++ **filter**
+
+  指的是Spring框架中GatewayFilter的实例，使用过滤器，可以在请求被路由前或者之后对请求进行修改。
+
++ web请求，通过一些匹配条件，定位到真正的服务节点。并在这个转发过程的前后，进行一些精细化控制。
+  predicate就是我们的匹配条件；
+  而filter，就可以理解为一个无所不能的拦截器。有了这两个元素，再加上目标uri，就可以实现一个具体的路由了
+
+![image-20211104151646453](SpringCloud+SpringCloudAlibaba.assets/image-20211104151646453.png)
+
+
+
+
+
+
+
+**工作流程**
+
+客户端向 Spring Cloud Gateway 发出请求。然后在 Gateway Handler Mapping 中找到与请求相匹配的路由，将其发送到 Gateway Web Handler。
+
+Handler 再通过指定的过滤器链来将请求发送到我们实际的服务执行业务逻辑，然后返回。
+过滤器之间用虚线分开是因为过滤器可能会在发送代理请求之前（“pre”）或之后（“post”）执行业务逻辑。
+
+Filter在“pre”类型的过滤器可以做参数校验、权限校验、流量监控、日志输出、协议转换等，
+在“post”类型的过滤器中可以做响应内容、响应头的修改，日志的输出，流量监控等有着非常重要的作用。
+
+
+
++ **核心逻辑**
+
+  ==路由转发+执行过滤器链==
+
+
+
+
+
+
+
+## 10.3 入门配置
+
+**cloud-gateway-gateway9527**
+
+```xml
+<!--gateway-->
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-gateway</artifactId>
+</dependency>
+```
+
+
+
+
+
++ **网关如何做路由映射**
+
+  访问cloud-provider-payment8001
+
+  目前不想暴露8001端口，希望在8001外面套一层9527
+
+  **==gateway网关不要引入webjar包==**
+
+  + YML配置新增网关配置
+
+    ![image-20211104153550230](SpringCloud+SpringCloudAlibaba.assets/image-20211104153550230.png)
+
++ 测试
+
+  ![image-20211104153813474](SpringCloud+SpringCloudAlibaba.assets/image-20211104153813474.png)
+
+  http://localhost:9527/payment/get/31
+
+
+
++ **网关路由配置的两种方式**
+
+  + 在yml中配置，见上
+
+  + 代码中注入RouteLocator的Bean
+
+    ```java
+    @Configuration
+    public class GatewayConfig {
+        @Bean
+        public RouteLocator customRouteLocator(RouteLocatorBuilder routeLocatorBuilder) {
+            RouteLocatorBuilder.Builder routes = routeLocatorBuilder.routes();
+            //http://news.baidu.com/guonei
+            routes.route("path_route_kou",
+                    r -> r.path(
+                    "/guonei").uri("http://news.baidu.com/guonei")
+            ).build();
+            return routes.build();
+        }
+    }
+    ```
+
+
+
+
+
+
+
+## 10.4 通过微服务名实现动态路由
+
+默认情况下Gateway会根据注册中心注册的服务列表，以注册中心上微服务名为路径创建动态路由进行转发，从而实现动态路由的功能。
+
+![image-20211104161807526](SpringCloud+SpringCloudAlibaba.assets/image-20211104161807526.png)
+
+![image-20211104162137793](SpringCloud+SpringCloudAlibaba.assets/image-20211104162137793.png)
+
+**需要注意的是uri的协议为lb，表示启用Gateway的负载均衡功能。**
+
+**lb://serviceName是spring cloud gateway在微服务中自动为我们创建的负载均衡uri**
+
+
+
+
+
+## 10.5 Predicate的使用
+
+![image-20211104163742896](SpringCloud+SpringCloudAlibaba.assets/image-20211104163742896.png)
+
+https://www.bilibili.com/video/BV18E411x7eT?p=72&spm_id_from=pageDriver
+
+说白了，Predicate就是为了实现一组匹配规则，让请求过来找到对应的Route进行处理。
+
+
+
+
+
+
+
+## 10.6 Filter的使用
+
+路由过滤器可用于修改进入的HTTP请求和返回的HTTP响应，路由过滤器只能指定路由进行使用。
+
+Spring Cloud Gateway 内置了多种路由过滤器，他们都由GatewayFilter的工厂类来产生。
+
+![image-20211104165602612](SpringCloud+SpringCloudAlibaba.assets/image-20211104165602612.png)
+
+https://cloud.spring.io/spring-cloud-static/spring-cloud-gateway/2.2.1.RELEASE/reference/html/#the-addrequestparameter-gatewayfilter-factory
+
+
+
+
+
++ **自定义过滤器**
+
+  自定义全局GlobalFilter
+
+  **implements GlobalFilter,Ordered**
+
+  ```java
+  @Component
+  @Slf4j
+  public class MyLogGateWayFilter implements GlobalFilter, Ordered {
+      @Override
+      public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+          log.info("************come in MyLogGateWayFilter:" + new Date());
+          String uname = exchange.getRequest().getQueryParams().getFirst("uname");
+          if (uname == null) {
+              log.info("***********用户名为null,非法用户");
+              exchange.getResponse().setStatusCode(HttpStatus.NOT_ACCEPTABLE);
+              return exchange.getResponse().setComplete();
+          }
+          return chain.filter(exchange);
+      }
+      @Override
+      public int getOrder() {
+          //过滤器优先级
+          return 0;
+      }
+  }
+  ```
+
+  ![image-20211104171436718](SpringCloud+SpringCloudAlibaba.assets/image-20211104171436718.png)
+
+
+
+
+
+
+
+# 11.SpringCloud Config分布式配置中心
+
+## 11.1概述
+
+微服务意味着要将单体应用中的业务拆分成一个个子服务，每个服务的粒度相对较小，因此系统中会出现大量的服务。**由于每个服务都需要必要的配置信息才能运行，所以一套集中式的、动态的配置管理设施是必不可少的。**
+
+SpringCloud提供了ConfigServer来解决这个问题，我们每一个微服务自己带着一个application.yml，上百个配置文件的管理......
+
+
+
+是什么？
+
+SpringCloud Config为微服务架构中的微服务提供集中化的外部配置支持，配置服务器为各个不同微服务应用的所有环境提供了一个中心化的外部配置。
+
+![image-20211106153503985](SpringCloud+SpringCloudAlibaba.assets/image-20211106153503985.png)
+
+怎么玩？
+
+SpringCloud Config分为**服务端和客户端**两部分。
+
+服务端也称为分布式配置中心，它是一个独立的微服务应用，用来连接配置服务器并为客户端提供获取配置信息，加密/解密信息等访问接口
+
+客户端则是通过指定的配置中心来管理应用资源，以及与业务相关的配置内容，并在启动的时候从配置中心获取和加载配置信息配置服务器默认采用git来存储配置信息，这样就有助于对环境配置进行版本管理，并且可以通过git客户端工具来方便的管理和访问配置内容。
+
+![image-20211106153742178](SpringCloud+SpringCloudAlibaba.assets/image-20211106153742178.png)
+
+https://cloud.spring.io/spring-cloud-static/spring-cloud-config/2.2.1.RELEASE/reference/html/
+
+
+
+
+
+## 11.2Config服务端配置与测试
+
+### 11.2.1 整合GitHub
+
+
+
+
+
+
+
+### 11.2.2 服务端配置
+
+**cloud-config-center-3344**
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-config-server</artifactId>
+</dependency>
+```
+
++ 主启动注解`@EnableConfigServer`
+
++ YML
+
+  ```yaml
+  server:
+    port: 3344
+  
+  spring:
+    application:
+      name:  cloud-config-center #注册进Eureka服务器的微服务名
+    cloud:
+      config:
+        server:
+          git:
+            uri: https://github.com/Kou1688/springcloud-config.git #GitHub上面的git仓库名字
+            ####搜索目录
+            search-paths:
+              - springcloud-config
+        ####读取分支
+        label: master
+  
+  #服务注册到eureka地址
+  eureka:
+    client:
+      service-url:
+        defaultZone: http://localhost:7001/eureka
+  ```
+
++ 在hosts文件下增加映射`127.0.0.1  config-3344.com`
++ ![image-20211106162300413](SpringCloud+SpringCloudAlibaba.assets/image-20211106162300413.png)
+
+
+
+
+
+
+
+### 11.3 客户端的配置
+
+**cloud-config-client-3355**
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-config</artifactId>
+</dependency>
+```
+
+
+
++ **bootstrap.yml**
+
+  applicaiton.yml是用户级的资源配置项
+  bootstrap.yml是系统级的，优先级更加高
+
+```YML
+server:
+  port: 3355
+
+spring:
+  application:
+    name: config-client
+  cloud:
+    #Config客户端配置
+    config:
+      label: master #分支名称
+      name: config #配置文件名称
+      profile: dev #读取后缀名称   上述3个综合：master分支上config-dev.yml的配置文件被读取http://config-3344.com:3344/master/config-dev.yml
+      uri: http://localhost:3344 #配置中心地址k
+
+#服务注册到eureka地址
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:7001/eureka
+```
+
+
+
++ **分布式配置的动态刷新问题**
+
+  ![image-20211106164911373](SpringCloud+SpringCloudAlibaba.assets/image-20211106164911373.png)
+
+
+
+
+
+## 11.4 Config客户端之动态刷新
+
+**手动版动态刷新：**
+
++ POM引入actuator监控
++ 修改YML，暴露监控端口
++ @RefreshScope业务类Controller修改
++ 需要运维人员发送Post请求刷新3355
+  + curl -X POST "http://localhost:3355/actuator/refresh"
++ http://localhost:3355/configInfo   成功自动刷新，避免了服务重启
+
+![image-20211106170606765](SpringCloud+SpringCloudAlibaba.assets/image-20211106170606765.png)
+
+
+
+
+
+
+
+
+
+# 12.SpringCloud Bus消息总线
+
