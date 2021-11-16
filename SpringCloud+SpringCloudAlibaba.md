@@ -1648,3 +1648,330 @@ eureka:
 
 # 12.SpringCloud Bus消息总线
 
+## 12.1 概述
+
+上一章的加深和理解
+
+分布式自动刷新配置功能，Spring Cloud Bus配合Spring Cloud Config使用可以实现配置的动态刷新
+
+Spring Cloud Bus 配合 Spring Cloud Config 使用可以实现配置的动态刷新。
+
+![image-20211114103232607](SpringCloud+SpringCloudAlibaba.assets/image-20211114103232607.png)
+
+Spring Cloud Bus是用来将分布式系统的节点与轻量级消息系统链接起来的框架，
+它整合了Java的事件处理机制和消息中间件的功能。
+Spring Cloud Bus目前支持RabbitMQ和Kafka。
+
++ 能干吗？
+
+  Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分布式执行器，可用于广播状态更改、事件推送等，也可以当作微服务间的通信通道。
+
+  ![image-20211114103516202](SpringCloud+SpringCloudAlibaba.assets/image-20211114103516202.png)
+
++ 什么是总线？
+
+  在微服务架构的系统中，通常会使用**轻量级的消息代理**来构建一个**共用的消息主题**，并让系统中所有微服务实例都连接上来。由于**该主题中产生的消息会被所有实例监听和消费，所以称它为消息总线**。在总线上的各个实例，都可以方便地广播一些需要让其他连接在该主题上的实例都知道的消息。
+
++ 基本原理
+
+  ConfigClient实例都监听MQ中同一个topic(默认是springCloudBus)。当一个服务刷新数据的时候，它会把这个信息放入到Topic中，这样其它监听同一Topic的服务就能得到通知，然后去更新自身的配置。
+
+
+
+## 12.2 RabbitMQ环境配置
+
+略
+
+
+
+
+
+## 12.3 SpringCloud Bus动态刷新全局广播
+
+首先需要RabbitMQ
+
+
+
+新建**cloud-config-client-3366**
+
+pom，yml，主启动，业务类
+
+
+
++ 设计思想
+
+  利用消息总线触发一个服务端ConfigServer的/bus/refresh端点，而刷新所有客户端的配置
+
+  ![image-20211114110701240](SpringCloud+SpringCloudAlibaba.assets/image-20211114110701240.png)
+
+
+
+
+
++ 给cloud-config-center-3344配置中心**服务端**添加消息总线支持
+
+  ```xml
+  <!--添加消息总线RabbitMQ支持-->
+  <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-bus-amqp</artifactId>
+  </dependency>
+  <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+  </dependency>
+  ```
+
+  ```yaml
+  ##rabbitmq相关配置,暴露bus刷新配置的端点
+  management:
+    endpoints: #暴露bus刷新配置的端点
+      web:
+        exposure:
+          include: 'bus-refresh'
+  ```
+
++ 给客户端做消息总线支持
+
+
+
+
+
++ 修改Github的配置文件增加版本号
+
++ 测试`curl -X POST "http://localhost:3344/actuator/bus-refresh"`
+
+  刷新发现全部更新
+
+  一次修改，广播通知，处处生效
+
+
+
+
+
+## 12.4 SpringCloud Bus动态刷新定点通知
+
+不想全部通知，只想定点通知（只通知3355，不通知3366）
+
+指定具体某一个实例生效而不是全部 
+
+公式：`http://localhost:配置中心的端口号/actuator/bus-refresh/{destination}`
+
+/bus/refresh请求不再发送到具体的服务实例上，而是发给config server并通过destination参数类指定需要更新配置的服务或实例
+
+`curl -X POST "http://localhost:3344/actuator/bus-refresh/config-client:3355"`
+
+![image-20211114120617415](SpringCloud+SpringCloudAlibaba.assets/image-20211114120617415.png)
+
+
+
+
+
+
+
+# 13.SpringCloud Stream消息驱动
+
+## 13.1 概述
+
+什么是SpringCloudStream？
+官方定义 Spring Cloud Stream 是一个构建消息驱动微服务的框架。
+
+应用程序通过 inputs 或者 outputs 来与 Spring Cloud Stream中binder对象交互。
+通过我们配置来binding(绑定) ，而 Spring Cloud Stream 的 binder对象负责与消息中间件交互。
+所以，我们只需要搞清楚如何与 Spring Cloud Stream 交互就可以方便使用消息驱动的方式。
+
+通过使用Spring Integration来连接消息代理中间件以实现消息事件驱动。
+Spring Cloud Stream 为一些供应商的消息中间件产品提供了个性化的自动化配置实现，引用了发布-订阅、消费组、分区的三个核心概念。
+
+目前仅支持RabbitMQ、Kafka。
+
+
+
++ 解决的痛点？
+
+  mq?
+
+  activemq,rabbitmq,rocketmq,kafka?
+
+  一个系统里有可能会有两种mq？
+
+  + 切换
+  + 维护
+  + 开发
+
+  有没有一种新的技术，不用再关注mq，只需一种适配绑定方式，自动的给我们再各种mq内切换
+
++ 一句话总结
+
+  屏蔽底层消息中间件的差异,降低切换成本，统一消息的编程模型
+
+
+
+https://spring.io/projects/spring-cloud-stream#overview
+
+https://m.wang1314.com/doc/webapp/topic/20971999.html
+
+
+
+
+
++ **设计思想**
+
+  生产者/消费者之间靠消息媒介传递信息内容
+
+  ![image-20211114135734307](SpringCloud+SpringCloudAlibaba.assets/image-20211114135734307.png)
+
+![image-20211114135942573](SpringCloud+SpringCloudAlibaba.assets/image-20211114135942573.png)
+
+
+
++ stream凭什么可以统一底层差异？
+
+  在没有绑定器这个概念的情况下，我们的SpringBoot应用要直接与消息中间件进行信息交互的时候，
+  由于各消息中间件构建的初衷不同，它们的实现细节上会有较大的差异性
+  通过定义绑定器作为中间层，完美地实现了应用程序与消息中间件细节之间的隔离。
+  通过向应用程序暴露统一的Channel通道，使得应用程序不需要再考虑各种不同的消息中间件实现。
+
+  通过定义绑定器Binder作为中间层，实现了应用程序与消息中间件细节之间的隔离。
+
++ **Binder**
+
+  在没有绑定器这个概念的情况下，我们的SpringBoot应用要直接与消息中间件进行信息交互的时候，由于各消息中间件构建的初衷不同，它们的实现细节上会有较大的差异性，通过定义绑定器作为中间层，完美地实现了应用程序与消息中间件细节之间的隔离。Stream对消息中间件的进一步封装，可以做到代码层面对中间件的无感知，甚至于动态的切换中间件(rabbitmq切换为kafka)，使得微服务开发的高度解耦，服务可以关注更多自己的业务流程。
+
+  ![image-20211114141604401](SpringCloud+SpringCloudAlibaba.assets/image-20211114141604401.png)
+
+  
+
+**通过定义绑定器Binder作为中间层，实现了应用程序与消息中间件细节之间的隔离。**
+
+Binder可以生成Binding，Binding用来绑定消息容器的生产者和消费者，它有两种类型，INPUT和OUTPUT，INPUT对应于消费者，OUTPUT对应于生产者
+
+**Stream中的消息通信方式遵循了发布-订阅模式**
+
+![image-20211114142011771](SpringCloud+SpringCloudAlibaba.assets/image-20211114142011771.png)
+
+![image-20211114142230109](SpringCloud+SpringCloudAlibaba.assets/image-20211114142230109.png)
+
+
+
+
+
+![image-20211115115125162](SpringCloud+SpringCloudAlibaba.assets/image-20211115115125162.png)
+
+![image-20211115115553278](SpringCloud+SpringCloudAlibaba.assets/image-20211115115553278.png)
+
+
+
+
+
+## 13.2 案例说明
+
+RabbitMQ环境已经OK
+
+![image-20211115115943365](SpringCloud+SpringCloudAlibaba.assets/image-20211115115943365.png)
+
+
+
+
+
+## 13.3 消息驱动之生产者
+
++ pom,yml
+
+  ```yaml
+  server:
+    port: 8801
+  
+  spring:
+    application:
+      name: cloud-stream-provider
+    cloud:
+        stream:
+          binders: # 在此处配置要绑定的rabbitmq的服务信息；
+            defaultRabbit: # 表示定义的名称，用于于binding整合
+              type: rabbit # 消息组件类型
+              environment: # 设置rabbitmq的相关的环境配置
+                spring:
+                  rabbitmq:
+                    host: localhost
+                    port: 5672
+                    username: guest
+                    password: guest
+          bindings: # 服务的整合处理
+            output: # 这个名字是一个通道的名称
+              destination: studyExchange # 表示要使用的Exchange名称定义
+              content-type: application/json # 设置消息类型，本次为json，文本则设置“text/plain”
+              binder: defaultRabbit # 设置要绑定的消息服务的具体设置
+  
+  eureka:
+    client: # 客户端进行Eureka注册的配置
+      service-url:
+        defaultZone: http://localhost:7001/eureka
+    instance:
+      lease-renewal-interval-in-seconds: 2 # 设置心跳的时间间隔（默认是30秒）
+      lease-expiration-duration-in-seconds: 5 # 如果现在超过了5秒的间隔（默认是90秒）
+      instance-id: send-8801.com  # 在信息列表时显示主机名称
+      prefer-ip-address: true     # 访问的路径变为IP地址
+  ```
+
+
+
+
+
+## 13.4 消息驱动之消费者
+
+8802
+
+
+
+
+
+
+
+## 13.5 分组消费与持久化
+
+目前是8802/8803同时都收到了，存在重复消费问题
+
+比如在如下场景中，订单系统我们做集群部署，都会从RabbitMQ中获取订单信息，
+那如果一个订单同时被两个服务获取到，那么就会造成数据错误，我们得避免这种情况。
+这时我们就可以使用Stream中的消息分组来解决
+
+![image-20211115135317316](SpringCloud+SpringCloudAlibaba.assets/image-20211115135317316.png)
+
+注意在Stream中处于同一个group中的多个消费者是竞争关系，就能够保证消息只会被其中一个应用消费一次。
+不同组是可以全面消费的(重复消费)，
+同一组内会发生竞争关系，只有其中一个可以消费。
+
+
+
+
+
++ **group解决重复消费**
+
+  故障现象：重复消费
+
+  导致原因：默认分组group是不同的，组流水号不一样，被认为不同组，可以消费。
+
++ 自定义配置分组，自定义配置分为同一个组，解决重复消费问题
+
+
+
+
+
++ **分组**
+
+  微服务应用放置于同一个group中，就能够保证消息只会被其中一个应用消费一次。
+  不同的组是可以消费的，同一个组内会发生竞争关系，只有其中一个可以消费。
+
+  分成相同组后，轮询消费
+
+  ![image-20211115140736709](SpringCloud+SpringCloudAlibaba.assets/image-20211115140736709.png)
+
+
+
+
+
+
+
+# 14.SpringCloud Sleuth分布式请求链路跟踪
+
