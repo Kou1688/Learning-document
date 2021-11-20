@@ -1975,3 +1975,27 @@ RabbitMQ环境已经OK
 
 # 14.SpringCloud Sleuth分布式请求链路跟踪
 
+## 14.1 概述
+
+ 在微服务框架中，一个由客户端发起的请求在后端系统中会经过多个不同的的服务节点调用来协同产生最后的请求结果，每一个前段请求都会形成一条复杂的分布式服务调用链路，链路中的任何一环出现高延时或错误都会引起整个请求最后的失败。
+
+Spring Cloud Sleuth提供了一套完整的服务跟踪的解决方案。
+
+在分布式系统中提供追踪解决方案并且兼容支持了zipkin。
+
+
+
+
+
+## 14.2 搭建链路监控步骤
+
+https://dl.bintray.com/openzipkin/maven/io/zipkin/java/zipkin-server/
+
+
+
+
+
+
+
+# 15.Nacos
+
