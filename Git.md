@@ -6,7 +6,7 @@
 
 
 
-![image-20210714185400721](Git.assets/image-20210714185400721.png)
+![image-20210714185400721](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2021/image-20210714185400721.png)
 
 
 
@@ -18,7 +18,7 @@
 
 `git init`：将文件夹变成仓库。
 
-![image-20210714185242621](Git.assets/image-20210714185242621.png)
+![image-20210714185242621](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2021/image-20210714185242621.png)
 
 
 
