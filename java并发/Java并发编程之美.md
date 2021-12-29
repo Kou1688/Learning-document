@@ -13,6 +13,14 @@
 
 
 
+## join
+
+join()方法的作用，是等待这个线程结束；
+
+也就是说，t.join()方法**阻塞调用此方法的线程**(calling thread)进入 **TIMED_WAITING** 状态，**直到线程t完成，此线程再继续**；
+
+通常用于在main()主线程内，等待其它线程完成再结束main()主线程。
+
 
 
 ## 1.7 线程中断
@@ -124,4 +132,61 @@ private void init(ThreadGroup g, Runnable target, String name,
 ![image-20211222143622790](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2021/image-20211222143622790.png)
 
 在ThreadMap里调用了重写的childValue方法，让子线程获取到了父线程的值。
+
+
+
+
+
+# 2.并发编程的其他基础知识
+
+## 2.9 unSafe的使用
+
+```java
+/**
+ * Unsafe类compareAndSwap操作(非阻塞原子操作)
+ *
+ * @author KouChaoJie
+ * @since: 2021/12/24 09:32
+ */
+public class TestUnsafe {
+    static final Unsafe unsafe;
+    static final long stateOffset;
+    private volatile long state = 0;
+
+    static {
+        try {
+            //通过反射获取Unsafe的成员变量
+            Field field = Unsafe.class.getDeclaredField("theUnsafe");
+
+            //设置为可存取
+            field.setAccessible(true);
+
+            //获取值
+            unsafe = (Unsafe) field.get(null);
+
+            //获取state的偏移量
+            stateOffset = unsafe.objectFieldOffset(TestUnsafe.class.getDeclaredField("state"));
+        } catch (Exception e) {
+            System.out.println(e.getLocalizedMessage());
+            throw new Error(e);
+        }
+    }
+
+    public static void main(String[] args) {
+        TestUnsafe testUnsafe = new TestUnsafe();
+        boolean b = unsafe.compareAndSwapInt(testUnsafe, stateOffset, 0, 1);
+        System.out.println(b);
+    }
+}
+```
+
+
+
+
+
+
+
+# 3.Java并发包中ThreadLocalRandom类原理剖析
+
+
 

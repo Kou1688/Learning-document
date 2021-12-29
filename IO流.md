@@ -220,7 +220,7 @@ java.io包下提供了各种"流"类和接口，用以获取数据。
 
 
 
-![image-20210719185201796](IO流.assets/image-20210719185201796.png)
+![image-20210719185201796](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2021/image-20210719185201796.png)
 
 
 
