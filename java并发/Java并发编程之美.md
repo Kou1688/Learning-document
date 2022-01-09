@@ -298,3 +298,12 @@ public class CopyList {
 ![image-20220104225928509](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2022/image-20220104225928509.png)
 
 可以看到，子线程里的操作一个都没生效，这就是迭代器弱一致性的体现。
+
+
+
+
+
+
+
+# 6.Java并发包中锁原理剖析
+
