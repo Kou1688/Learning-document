@@ -275,9 +275,76 @@ MySQL 8.0中可以使用“LIMIT 3 OFFSET 4”，意思是获取从第5条记录
 
 
 
-### 2.4 多表查询
+## 2.4 多表查询
 
 出现笛卡尔积错误的原因：缺少连接条件
+
+
+
+
+
+
+
+
+
+## 2.5 内连接与外连接
+
+内连接: 合并具有同一列的两个以上的表的行, **结果集中不包含一个表与另一个表不匹配的行**
+
+外连接: 两个表在连接过程中除了返回满足连接条件的行以外**还返回左（或右）表中不满足条件的**行 ，这种连接称为左（或右） 外连接。没有匹配的行时, 结果表中相应的列为空(NULL)。
+
+如果是左外连接，则连接条件中左边的表也称为 **主表** ，右边的表称为 ==从表==。
+
+如果是右外连接，则连接条件中右边的表也称为 **主表** ，左边的表称为 ==从表==。 
+
+```sql
+-- 内连接
+SELECT last_name, department_name
+FROM employees e
+         JOIN departments d ON d.department_id = e.department_id;
+
+-- 左外连接
+SELECT last_name, department_name
+FROM employees e
+         LEFT JOIN departments d
+             ON d.department_id = e.department_id;
+
+-- 右外连接
+SELECT last_name, department_name
+FROM employees e
+         RIGHT JOIN departments d
+             ON d.department_id = e.department_id;
+```
+
+UNION与UNION ALL的操作
+
+UNION：会执行去重操作
+
+UNION ALL：不会执行去重操作
+
+如果明确知道合并数据后的结果数据不存在重复数据，或者不需要去除重复的数据，则尽量使用UNION ALL语句，以提高数据查询的效率。
+
+![image-20220227162659610](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2022/image-20220227162659610.png)
+
+
+
+自然连接：
+
+NATUAL  JOIN
+
+会自动查询两张连接表中所有相同的字段，然后进行等值连接。
+
+
+
+
+
+
+
+
+
+## 2.6 函数
+
+
 
 
 
