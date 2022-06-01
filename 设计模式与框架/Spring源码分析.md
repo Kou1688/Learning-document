@@ -1,3 +1,5 @@
+spring5.3.5    jdk15编译
+
 # 1.Spring源码分析
 
 ## 1.1 配置gradle
@@ -111,7 +113,7 @@ gradle.projectsLoaded {
 
 
 
-## 1.2 核心注解
+## 1.2 基本注解
 
 | **注解**         | **功能**                                                     |
 | ---------------- | ------------------------------------------------------------ |
@@ -134,5 +136,26 @@ gradle.projectsLoaded {
 | @Autowired       | 自动装配                                                     |
 | @Qualifier       | 精确指定                                                     |
 | @Value           | 取值、计算机环境变量、JVM系统。xxxx。@Value(“${xx}”)         |
-| @Lookup          | 单例组件依赖非单例组件，非单例组件获取需要使用方法           |
+| @Lookup          | 单例组件依赖非单例组件，非单例组件获取需要使用方法（放在get方法上，并且对@Bean注册的组件不生效） |
 
+
+
+**Bean注册中心**
+
+在spring中注册bean是注册Bean的定义信息。
+
+```
+BeanDefinitionRegistry:Bean定义信息注册中心，里面存放Bean的定义信息
+```
+
+![image-20220505160227511](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2022/image-20220505160227511.png)
+
+
+
+
+
+
+
+## 1.3 Spring框架的整体流程
+
+![image-20220505164250748](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2022/image-20220505164250748.png)

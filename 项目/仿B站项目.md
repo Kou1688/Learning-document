@@ -17,7 +17,7 @@
   + 后端：业务处理+功能实现
   + 工具：缓存、队列
 
-![image-20220328171510321](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2022/image-20220328171510321.png)
+![image-20220330143551831](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2022/image-20220330143551831.png)
 
 
 
@@ -71,6 +71,14 @@ public class JsonConvertorConfig {
 
 
 
+### 2.1.1 错误码配置
+
++ 用户服务：10
+
+
+
+
+
 ## 2.2 用户注册与登录
 
 数据库表设计：
@@ -82,3 +90,18 @@ public class JsonConvertorConfig {
 
 + 获取RSA公钥
 + 用户注册与登录
++ 登录基于JWT进行用户的token验证
+
+
+
+### 2.2.1 基于JWT的用户token验证
+
++ 验证过程
+
+  服务端验证浏览器携带的用户名和密码，验证通过后生成用户令牌（token）并返回给浏览器，浏览器再次访问时携带token，服务端校验token并返回相关数据。
+
++ token不储存在服务器，不会造成服务器压力；token可以存储在非cookie中，安全性高；分布式系统下扩展性强。
+
+  JWT分成三部分，第一部分是头部（header），第二部分是载荷（payload），第三部分是签名（signature）
+
+  ![image-20220331165745629](https://typora-1259727047.cos.ap-nanjing.myqcloud.com/img/2022/image-20220331165745629.png)

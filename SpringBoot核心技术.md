@@ -532,8 +532,6 @@ public @interface SpringBootApplication
 
 
 
-
-
 ### 5.2@SpringBootConfiguration
 
 本质是一个`@Configuration`，代表当前是一个配置类

@@ -342,9 +342,24 @@ NATUAL  JOIN
 
 
 
-## 2.6 函数
+## 2.6 SQL执行过程
 
++ select语句完整结构
 
+  ```sql
+  select ...,...,...(存在聚合函数)
+  from ...,JOIN.... ON
+  where 过滤条件(不包含聚合函数)
+  group by ...,...
+  having 包含聚合函数的过滤条件
+  order by ...,...(ASC/DESC)
+  limit ...,...
+  ```
 
++ sql语句执行过程
 
+  ```sql
+  from->on->join->where->group by->having->select->order by ->limit
+  ```
 
+  
